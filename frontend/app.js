@@ -3,6 +3,7 @@ const API_URL = "https://game-list-api-rjqftd4irq-uc.a.run.app/api";
 let videojuegos    = [];
 let categorias     = [];
 let plataformas    = [];
+let wishlistItems  = [];
 let editandoId     = null;
 let detalleJuegoId = null;
 
@@ -23,6 +24,7 @@ const resultsCount     = document.getElementById("results-count");
 // ── Vistas ──
 const vistaBiblioteca = document.getElementById("vista-biblioteca");
 const vistaDetalle    = document.getElementById("vista-detalle");
+const vistaWishlist   = document.getElementById("vista-wishlist");
 
 // ── Detalle ──
 const detalleImagen      = document.getElementById("detalle-imagen");
@@ -35,9 +37,13 @@ const puntuacionSlider  = document.getElementById("resena-puntuacion");
 const puntuacionDisplay = document.getElementById("puntuacion-display");
 
 // ── Preview imagen en formulario ──
-const imagenUrlInput         = document.getElementById("imagenUrl");
-const imagenPreview          = document.getElementById("imagen-preview");
+const imagenUrlInput           = document.getElementById("imagenUrl");
+const imagenPreview            = document.getElementById("imagen-preview");
 const imagenPreviewPlaceholder = document.getElementById("imagen-preview-placeholder");
+
+// ── Modal wishlist ──
+const modalWishlist  = document.getElementById("modal-wishlist");
+const formWishlist   = document.getElementById("form-wishlist");
 
 // ════════════════════════════════════════════════════════
 //  INICIALIZACIÓN
@@ -46,6 +52,11 @@ const imagenPreviewPlaceholder = document.getElementById("imagen-preview-placeho
 document.addEventListener("DOMContentLoaded", async () => {
   await Promise.all([cargarCategorias(), cargarPlataformas()]);
   await cargarVideojuegos();
+
+  // Navegación por tabs
+  document.querySelectorAll(".nav-tab").forEach(tab => {
+    tab.addEventListener("click", () => cambiarVistaPrincipal(tab.dataset.vista));
+  });
 
   // Formulario toggle
   document.getElementById("btn-abrir-formulario").addEventListener("click", abrirFormulario);
@@ -101,8 +112,40 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   formResena.addEventListener("submit", guardarResena);
 
+  // Modal wishlist
+  document.getElementById("btn-abrir-modal-wishlist").addEventListener("click", () => {
+    formWishlist.reset();
+    document.getElementById("wl-error-titulo").textContent = "";
+    document.querySelector('input[name="wl-prioridad"][value="MEDIA"]').checked = true;
+    modalWishlist.style.display = "flex";
+  });
+  document.getElementById("btn-cerrar-modal-wl").addEventListener("click", () => {
+    modalWishlist.style.display = "none";
+  });
+  modalWishlist.addEventListener("click", (e) => {
+    if (e.target === modalWishlist) modalWishlist.style.display = "none";
+  });
+  formWishlist.addEventListener("submit", guardarWishlistItem);
+
+  document.getElementById("wl-filter-prioridad").addEventListener("change", renderizarWishlist);
+
   form.addEventListener("submit", guardarVideojuego);
 });
+
+// ════════════════════════════════════════════════════════
+//  NAVEGACIÓN
+// ════════════════════════════════════════════════════════
+
+function cambiarVistaPrincipal(vista) {
+  document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+  document.querySelector(`[data-vista="${vista}"]`).classList.add("active");
+
+  vistaBiblioteca.style.display = vista === "biblioteca" ? "block" : "none";
+  vistaDetalle.style.display    = "none";
+  vistaWishlist.style.display   = vista === "wishlist"   ? "block" : "none";
+
+  if (vista === "wishlist") cargarWishlist();
+}
 
 // ════════════════════════════════════════════════════════
 //  CARGA DE DATOS
@@ -112,11 +155,15 @@ async function cargarCategorias() {
   const res = await fetch(`${API_URL}/categorias`);
   categorias = await res.json();
 
+  const wlCatSelect = document.getElementById("wl-categoriaId");
   categoriaSelect.innerHTML = '<option value="">Sin categoría</option>';
-  filterCat.innerHTML = '<option value="">Todas las categorías</option>';
+  filterCat.innerHTML       = '<option value="">Todas las categorías</option>';
+  wlCatSelect.innerHTML     = '<option value="">Sin categoría</option>';
   categorias.forEach(c => {
-    categoriaSelect.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
-    filterCat.innerHTML       += `<option value="${c.id}">${c.nombre}</option>`;
+    const opt = `<option value="${c.id}">${c.nombre}</option>`;
+    categoriaSelect.innerHTML += opt;
+    filterCat.innerHTML       += opt;
+    wlCatSelect.innerHTML     += opt;
   });
 }
 
@@ -124,9 +171,13 @@ async function cargarPlataformas() {
   const res = await fetch(`${API_URL}/plataformas`);
   plataformas = await res.json();
 
+  const wlPlatSelect = document.getElementById("wl-plataformaId");
   plataformaSelect.innerHTML = '<option value="">Sin plataforma</option>';
+  wlPlatSelect.innerHTML     = '<option value="">Sin plataforma</option>';
   plataformas.forEach(p => {
-    plataformaSelect.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
+    const opt = `<option value="${p.id}">${p.nombre}</option>`;
+    plataformaSelect.innerHTML += opt;
+    wlPlatSelect.innerHTML     += opt;
   });
 }
 
@@ -473,4 +524,94 @@ function limpiarFiltros() {
   filterCat.value    = "";
   clearSearchBtn.style.display = "none";
   renderizar();
+}
+
+// ════════════════════════════════════════════════════════
+//  WISHLIST
+// ════════════════════════════════════════════════════════
+
+async function cargarWishlist() {
+  const res = await fetch(`${API_URL}/wishlist`);
+  wishlistItems = await res.json();
+  renderizarWishlist();
+}
+
+function renderizarWishlist() {
+  const filtroPrioridad = document.getElementById("wl-filter-prioridad").value;
+  const lista = filtroPrioridad
+    ? wishlistItems.filter(w => w.prioridad === filtroPrioridad)
+    : wishlistItems;
+
+  const grid  = document.getElementById("wishlist-list");
+  const empty = document.getElementById("wishlist-empty");
+  const count = document.getElementById("wishlist-count");
+
+  count.textContent = filtroPrioridad
+    ? `(${lista.length} de ${wishlistItems.length})`
+    : `(${wishlistItems.length})`;
+
+  grid.innerHTML = "";
+  empty.style.display = lista.length === 0 ? "block" : "none";
+
+  lista.forEach(w => {
+    const div = document.createElement("div");
+    div.className = `wl-card prioridad-${w.prioridad}`;
+
+    const plat = w.plataforma?.nombre || w.plataformaNombre || "—";
+    const cat  = w.categoria?.nombre  || w.categoriaNombre  || "—";
+    const prioLabel = { ALTA: "Alta", MEDIA: "Media", BAJA: "Baja" };
+
+    div.innerHTML = `
+      <div class="wl-card-header">
+        <div class="wl-titulo">${w.titulo}</div>
+        <button class="wl-delete" title="Eliminar" onclick="eliminarWishlistItem(${w.id})">🗑</button>
+      </div>
+      <span class="wl-badge prioridad-badge-${w.prioridad}">${prioLabel[w.prioridad] || w.prioridad}</span>
+      <div class="wl-meta">${plat} · ${cat}</div>
+      ${w.notas ? `<div class="wl-notas">"${w.notas}"</div>` : ""}
+    `;
+    grid.appendChild(div);
+  });
+}
+
+async function guardarWishlistItem(e) {
+  e.preventDefault();
+
+  const titulo = document.getElementById("wl-titulo").value.trim();
+  const errorEl = document.getElementById("wl-error-titulo");
+
+  if (!titulo) {
+    errorEl.textContent = "El título es obligatorio.";
+    return;
+  }
+  errorEl.textContent = "";
+
+  const prioridad = document.querySelector('input[name="wl-prioridad"]:checked')?.value || "MEDIA";
+  const catId     = document.getElementById("wl-categoriaId").value;
+  const platId    = document.getElementById("wl-plataformaId").value;
+
+  const data = {
+    titulo,
+    prioridad,
+    notas:     document.getElementById("wl-notas").value.trim() || null,
+    categoria: catId  ? { id: Number(catId)  } : null,
+    plataforma: platId ? { id: Number(platId) } : null,
+  };
+
+  const res = await fetch(`${API_URL}/wishlist`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  if (res.ok) {
+    modalWishlist.style.display = "none";
+    await cargarWishlist();
+  }
+}
+
+async function eliminarWishlistItem(id) {
+  if (!confirm("¿Quitar este juego de la wishlist?")) return;
+  await fetch(`${API_URL}/wishlist/${id}`, { method: "DELETE" });
+  await cargarWishlist();
 }
