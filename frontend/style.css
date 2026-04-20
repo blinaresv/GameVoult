@@ -180,6 +180,60 @@ body {
 .prioridad-media { background: #78350f; color: #fde68a; }
 .prioridad-baja  { background: #14532d; color: #86efac; }
 
+/* ══════════════════════════════════════════
+   BARRA DE ESTADÍSTICAS
+══════════════════════════════════════════ */
+
+.stats-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 20px;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s, filter 0.15s;
+  min-width: 90px;
+  background: #1e293b;
+}
+
+.stat-pill:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.15);
+}
+
+.stat-pill.active {
+  border-color: white;
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.75;
+}
+
+.stat-num {
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+/* colores por estado */
+.stat-total     { background: #1e3a5f; color: #93c5fd; }
+.stat-pendiente { background: #78350f; color: #fde68a; }
+.stat-jugando   { background: #1e3a8a; color: #bfdbfe; }
+.stat-terminado { background: #14532d; color: #bbf7d0; }
+.stat-favorito  { background: #4c1d95; color: #e9d5ff; }
+
 /* ── Botón abrir formulario ── */
 .form-toggle-bar {
   margin-bottom: 16px;
@@ -878,6 +932,17 @@ input[type="range"] {
   .games-list {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .stats-bar {
+    gap: 8px;
+  }
+
+  .stat-pill {
+    min-width: 70px;
+    padding: 8px 12px;
+  }
+
+  .stat-num { font-size: 1.3rem; }
 
   .wishlist-grid {
     grid-template-columns: 1fr;
