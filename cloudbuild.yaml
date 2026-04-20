@@ -38,6 +38,7 @@ substitutions:
 
 options:
   logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
 
 images:
   - 'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api'

@@ -1,0 +1,10 @@
+# Evitar copiar archivos innecesarios al contexto de Docker build
+backend/target/
+**/.git
+**/.gitignore
+**/.gitattributes
+**/node_modules
+*.md
+.github/
+docs/
+database/
