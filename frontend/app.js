@@ -52,10 +52,21 @@ const formWishlist   = document.getElementById("form-wishlist");
 document.addEventListener("DOMContentLoaded", async () => {
   await Promise.all([cargarCategorias(), cargarPlataformas()]);
   await cargarVideojuegos();
+  await cargarEstadisticas();
 
   // Navegación por tabs
   document.querySelectorAll(".nav-tab").forEach(tab => {
     tab.addEventListener("click", () => cambiarVistaPrincipal(tab.dataset.vista));
+  });
+
+  // Pills de estadísticas — filtran la biblioteca al hacer clic
+  document.querySelectorAll(".stat-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".stat-pill").forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      filterEstado.value = pill.dataset.estado;
+      renderizar();
+    });
   });
 
   // Formulario toggle
@@ -78,7 +89,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     clearSearchBtn.style.display = "none";
     renderizar();
   });
-  filterEstado.addEventListener("change", renderizar);
+  filterEstado.addEventListener("change", () => {
+    sincronizarPillActiva(filterEstado.value);
+    renderizar();
+  });
   filterCat.addEventListener("change", renderizar);
   clearFiltersBtn.addEventListener("click", limpiarFiltros);
 
@@ -185,6 +199,19 @@ async function cargarVideojuegos() {
   const res = await fetch(`${API_URL}/videojuegos`);
   videojuegos = await res.json();
   renderizar();
+  await cargarEstadisticas();
+}
+
+async function cargarEstadisticas() {
+  const res = await fetch(`${API_URL}/videojuegos/estadisticas`);
+  if (!res.ok) return;
+  const stats = await res.json();
+
+  const claves = ["TOTAL", "PENDIENTE", "JUGANDO", "TERMINADO", "FAVORITO"];
+  claves.forEach(k => {
+    const el = document.getElementById(`num-${k}`);
+    if (el) el.textContent = stats[k] ?? 0;
+  });
 }
 
 // ════════════════════════════════════════════════════════
@@ -523,7 +550,14 @@ function limpiarFiltros() {
   filterEstado.value = "";
   filterCat.value    = "";
   clearSearchBtn.style.display = "none";
+  sincronizarPillActiva("");
   renderizar();
+}
+
+function sincronizarPillActiva(estado) {
+  document.querySelectorAll(".stat-pill").forEach(p => {
+    p.classList.toggle("active", p.dataset.estado === estado);
+  });
 }
 
 // ════════════════════════════════════════════════════════
