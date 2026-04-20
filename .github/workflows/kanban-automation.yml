@@ -209,9 +209,28 @@ jobs:
             const option = statusField?.options.find(o => o.name.toLowerCase() === 'done');
             if (!statusField || !option) { console.log('⚠️ Campo Status u opción Done no encontrado'); return; }
 
+            // Obtener node_id de cada issue para poder agregarlo al proyecto si falta
             for (const issueNum of issueNumbers) {
-              const item = project.items.nodes.find(i => i.content?.number === issueNum);
-              if (!item) { console.log(`⚠️ Issue #${issueNum} no está en el proyecto`); continue; }
+              let item = project.items.nodes.find(i => i.content?.number === issueNum);
+
+              if (!item) {
+                console.log(`ℹ️ Issue #${issueNum} no está en el proyecto, agregándolo...`);
+                const { repository: { issue } } = await github.graphql(`
+                  query($owner: String!, $repo: String!, $num: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                      issue(number: $num) { id }
+                    }
+                  }
+                `, { owner, repo: context.repo.repo, num: issueNum });
+
+                const { addProjectV2ItemById: { item: newItem } } = await github.graphql(`
+                  mutation($projectId: ID!, $contentId: ID!) {
+                    addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) { item { id } }
+                  }
+                `, { projectId: project.id, contentId: issue.id });
+                item = newItem;
+              }
+
               await github.graphql(`
                 mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
                   updateProjectV2ItemFieldValue(input: {
