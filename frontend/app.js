@@ -1,4 +1,8 @@
-const API_URL = "https://game-list-api-rjqftd4irq-uc.a.run.app/api";
+// En Docker/Cloud Run el frontend y la API comparten origen → URL relativa.
+// En local con Live Server (puerto ≠ 8080) → URL absoluta al backend de desarrollo.
+const API_URL = (window.location.hostname === 'localhost' && window.location.port !== '8080')
+  ? 'http://localhost:8080/api'
+  : '/api';
 
 let videojuegos    = [];
 let categorias     = [];
