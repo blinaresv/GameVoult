@@ -15,6 +15,12 @@
     <p>Tu biblioteca personal de videojuegos</p>
   </header>
 
+  <!-- ═══════════════ NAVEGACIÓN ═══════════════ -->
+  <nav class="nav-tabs">
+    <button class="nav-tab active" id="tab-biblioteca" data-vista="biblioteca">🎮 Biblioteca</button>
+    <button class="nav-tab" id="tab-wishlist"  data-vista="wishlist">⭐ Wishlist</button>
+  </nav>
+
   <!-- ═══════════════ VISTA: BIBLIOTECA ═══════════════ -->
   <div id="vista-biblioteca">
 
@@ -194,7 +200,80 @@
 
   </div><!-- /vista-detalle -->
 
+  <!-- ═══════════════ VISTA: WISHLIST ═══════════════ -->
+  <div id="vista-wishlist" style="display:none">
+
+    <section class="box">
+      <div class="top-row">
+        <h2>Lista de deseos <span id="wishlist-count" class="results-count"></span></h2>
+        <div class="tools">
+          <select id="wl-filter-prioridad">
+            <option value="">Todas las prioridades</option>
+            <option value="ALTA">Alta</option>
+            <option value="MEDIA">Media</option>
+            <option value="BAJA">Baja</option>
+          </select>
+          <button class="btn" id="btn-abrir-modal-wishlist">+ Agregar a wishlist</button>
+        </div>
+      </div>
+
+      <div id="wishlist-list" class="wishlist-grid"></div>
+      <p id="wishlist-empty" class="empty-msg" style="display:none">Tu lista de deseos está vacía.</p>
+    </section>
+
+  </div><!-- /vista-wishlist -->
+
 </div><!-- /container -->
+
+<!-- ═══════════════ MODAL: NUEVA WISHLIST ═══════════════ -->
+<div id="modal-wishlist" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3>Agregar a Wishlist</h3>
+
+    <form id="form-wishlist" novalidate>
+      <div class="modal-field">
+        <label>Título <span class="req">*</span></label>
+        <input type="text" id="wl-titulo" placeholder="Ej: Elden Ring" />
+        <span class="field-error" id="wl-error-titulo"></span>
+      </div>
+
+      <div class="modal-field">
+        <label>Plataforma</label>
+        <select id="wl-plataformaId"></select>
+      </div>
+
+      <div class="modal-field">
+        <label>Categoría</label>
+        <select id="wl-categoriaId"></select>
+      </div>
+
+      <div class="modal-field">
+        <label>Prioridad</label>
+        <div class="prioridad-radios">
+          <label class="radio-label prioridad-alta">
+            <input type="radio" name="wl-prioridad" value="ALTA" /> Alta
+          </label>
+          <label class="radio-label prioridad-media">
+            <input type="radio" name="wl-prioridad" value="MEDIA" checked /> Media
+          </label>
+          <label class="radio-label prioridad-baja">
+            <input type="radio" name="wl-prioridad" value="BAJA" /> Baja
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-field">
+        <label>Notas</label>
+        <textarea id="wl-notas" rows="2" placeholder="Por qué quieres este juego..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="submit" class="btn">Guardar</button>
+        <button type="button" class="btn btn-gray" id="btn-cerrar-modal-wl">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <!-- ═══════════════ MODAL: NUEVA RESEÑA ═══════════════ -->
 <div id="modal-resena" class="modal-overlay" style="display:none">
