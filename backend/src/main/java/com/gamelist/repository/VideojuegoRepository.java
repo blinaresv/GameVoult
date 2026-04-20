@@ -3,6 +3,8 @@ package com.gamelist.repository;
 import com.gamelist.model.EstadoJuego;
 import com.gamelist.model.Videojuego;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -10,19 +12,17 @@ import java.util.List;
 @Repository
 public interface VideojuegoRepository extends JpaRepository<Videojuego, Long> {
 
-    List<Videojuego> findByTituloContainingIgnoreCase(String titulo);
-
-    List<Videojuego> findByEstado(EstadoJuego estado);
-
-    List<Videojuego> findByCategoriaId(Long categoriaId);
-
-    List<Videojuego> findByPlataformaId(Long plataformaId);
-
-    List<Videojuego> findByTituloContainingIgnoreCaseAndEstado(String titulo, EstadoJuego estado);
-
-    List<Videojuego> findByTituloContainingIgnoreCaseAndCategoriaId(String titulo, Long categoriaId);
-
-    List<Videojuego> findByEstadoAndCategoriaId(EstadoJuego estado, Long categoriaId);
-
-    List<Videojuego> findByTituloContainingIgnoreCaseAndEstadoAndCategoriaId(String titulo, EstadoJuego estado, Long categoriaId);
+    @Query("""
+            SELECT v FROM Videojuego v
+            WHERE (:titulo      IS NULL OR LOWER(v.titulo) LIKE LOWER(CONCAT('%', :titulo, '%')))
+              AND (:estado      IS NULL OR v.estado = :estado)
+              AND (:categoriaId  IS NULL OR v.categoria.id = :categoriaId)
+              AND (:plataformaId IS NULL OR v.plataforma.id = :plataformaId)
+            """)
+    List<Videojuego> buscarConFiltros(
+            @Param("titulo")       String titulo,
+            @Param("estado")       EstadoJuego estado,
+            @Param("categoriaId")  Long categoriaId,
+            @Param("plataformaId") Long plataformaId
+    );
 }

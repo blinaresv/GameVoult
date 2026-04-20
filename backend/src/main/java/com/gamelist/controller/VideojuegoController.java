@@ -30,31 +30,7 @@ public class VideojuegoController {
             @RequestParam(required = false) Long categoriaId,
             @RequestParam(required = false) Long plataformaId) {
 
-        if (titulo != null && estado != null && categoriaId != null) {
-            return repo.findByTituloContainingIgnoreCaseAndEstadoAndCategoriaId(titulo, estado, categoriaId);
-        }
-        if (titulo != null && estado != null) {
-            return repo.findByTituloContainingIgnoreCaseAndEstado(titulo, estado);
-        }
-        if (titulo != null && categoriaId != null) {
-            return repo.findByTituloContainingIgnoreCaseAndCategoriaId(titulo, categoriaId);
-        }
-        if (titulo != null) {
-            return repo.findByTituloContainingIgnoreCase(titulo);
-        }
-        if (estado != null && categoriaId != null) {
-            return repo.findByEstadoAndCategoriaId(estado, categoriaId);
-        }
-        if (estado != null) {
-            return repo.findByEstado(estado);
-        }
-        if (categoriaId != null) {
-            return repo.findByCategoriaId(categoriaId);
-        }
-        if (plataformaId != null) {
-            return repo.findByPlataformaId(plataformaId);
-        }
-        return repo.findAll();
+        return repo.buscarConFiltros(titulo, estado, categoriaId, plataformaId);
     }
 
     @GetMapping("/estadisticas")
