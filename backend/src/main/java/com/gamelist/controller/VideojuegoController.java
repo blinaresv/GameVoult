@@ -1,5 +1,6 @@
 package com.gamelist.controller;
 
+import com.gamelist.model.Categoria;
 import com.gamelist.model.EstadoJuego;
 import com.gamelist.model.Videojuego;
 import com.gamelist.repository.VideojuegoRepository;
@@ -94,6 +95,18 @@ public class VideojuegoController {
         existente.setCategoria(datos.getCategoria());
         existente.setPlataforma(datos.getPlataforma());
         return repo.save(existente);
+    }
+
+    @GetMapping("/{id}/categoria")
+    public Categoria obtenerCategoria(@PathVariable Long id) {
+        Videojuego videojuego = repo.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Videojuego con id " + id + " no encontrado"));
+        if (videojuego.getCategoria() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "El videojuego con id " + id + " no tiene categoría asignada");
+        }
+        return videojuego.getCategoria();
     }
 
     @DeleteMapping("/{id}")
