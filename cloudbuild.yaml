@@ -1,0 +1,50 @@
+steps:
+  # 1. Compilar el proyecto (genera el .jar)
+  - name: 'maven:3.9.6-eclipse-temurin-21'
+    entrypoint: mvn
+    args: ['clean', 'package', '-DskipTests']
+    dir: 'backend'
+
+  # 2. Construir la imagen Docker
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'build',
+        '-t',
+        'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:$COMMIT_SHA',
+        '-t',
+        'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:latest',
+        'backend'
+      ]
+
+  # 3. Push
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'push',
+        '--all-tags',
+        'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api'
+      ]
+
+  # 4. Deploy a Cloud Run (YA con variables y Cloud SQL 🔥)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      [
+        'run',
+        'services',
+        'update',
+        'game-list-api',
+        '--image=us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:$COMMIT_SHA',
+        '--region=us-central1',
+        '--add-cloudsql-instances=game-list-cloud:us-central1:gamelist-db',
+        '--set-env-vars=DB_NAME=gamelist,DB_USER=postgres,DB_PASSWORD=123456789,INSTANCE_CONNECTION_NAME=game-list-cloud:us-central1:gamelist-db',
+        '--quiet'
+      ]
+
+# 🔧 NECESARIO por el error que tenías
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - 'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api'

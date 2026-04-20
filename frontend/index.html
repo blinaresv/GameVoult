@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gestor de Videojuegos</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="container">
+
+  <header class="header">
+    <h1>🎮 Gestor de Videojuegos</h1>
+    <p>Organiza tus juegos por estado y categoría</p>
+  </header>
+
+  <!-- FORMULARIO -->
+  <section class="box">
+    <h2 id="form-title">Agregar videojuego</h2>
+
+    <form id="game-form">
+      <input type="hidden" id="game-id" />
+
+      <div class="grid">
+        <div>
+          <label>Título</label>
+          <input type="text" id="titulo" required />
+        </div>
+
+        <div>
+          <label>Plataforma</label>
+          <input type="text" id="plataforma" required />
+        </div>
+
+        <div>
+          <label>Año</label>
+          <input type="number" id="anio" required />
+        </div>
+
+        <div>
+          <label>Categoría</label>
+          <select id="categoriaId" required></select>
+        </div>
+
+        <!-- 🔥 NUEVO CAMPO -->
+        <div class="full">
+          <label>Estado</label>
+          <select id="estado">
+            <option value="pendiente">Pendiente</option>
+            <option value="jugando">Jugando</option>
+            <option value="terminado">Terminado</option>
+            <option value="favorito">Favorito</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button class="btn">Guardar</button>
+        <button type="button" class="btn btn-gray" id="cancel-btn">Cancelar</button>
+      </div>
+    </form>
+
+    <p id="message"></p>
+  </section>
+
+  <!-- LISTA -->
+  <section class="box">
+    <div class="top-row">
+      <h2>Videojuegos registrados</h2>
+
+      <div class="tools">
+        <input type="text" id="search-input" placeholder="Buscar..." />
+        <select id="filter-category"></select>
+        <button class="btn btn-gray" id="reload-btn">Recargar</button>
+      </div>
+    </div>
+
+    <div id="games-list" class="games-list"></div>
+  </section>
+
+  <!-- DETALLE -->
+  <section class="box">
+    <h2>Detalle</h2>
+    <div id="game-detail" class="detail-box"></div>
+  </section>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
