@@ -1,37 +1,40 @@
 steps:
-  # 1. Construir imagen Docker unificada (backend + frontend)
-  #    El Maven build ocurre DENTRO del Dockerfile multi-stage
-  #    El contexto de build es la raíz del repositorio
+  # 1. Construir la imagen Docker unificada (backend + frontend)
+  #    El Dockerfile multi-stage hace el mvn build internamente
   - name: 'gcr.io/cloud-builders/docker'
     args:
-      [
-        'build',
-        '-t', 'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:$COMMIT_SHA',
-        '-t', 'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:latest',
-        '.'
-      ]
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:$COMMIT_SHA'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:latest'
+      - '.'
 
   # 2. Push de la imagen al Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
-      [
-        'push',
-        '--all-tags',
-        'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api'
-      ]
+      - 'push'
+      - '--all-tags'
+      - 'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api'
 
-  # 3. Deploy a Cloud Run con la nueva imagen unificada
+  # 3. Deploy a Cloud Run con variables de entorno desde substitutions
+  #    Las substitutions se configuran en el trigger de Cloud Build (sin hardcodear)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
-      [
-        'run', 'services', 'update', 'game-list-api',
-        '--image=us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:$COMMIT_SHA',
-        '--region=us-central1',
-        '--add-cloudsql-instances=game-list-cloud:us-central1:gamelist-db',
-        '--set-env-vars=DB_NAME=gamelist,DB_USER=postgres,DB_PASSWORD=123456789,INSTANCE_CONNECTION_NAME=game-list-cloud:us-central1:gamelist-db',
-        '--quiet'
-      ]
+      - 'run'
+      - 'services'
+      - 'update'
+      - 'game-list-api'
+      - '--image=us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--add-cloudsql-instances=game-list-cloud:us-central1:gamelist-db'
+      - '--set-env-vars=DB_NAME=gamelist,DB_USER=$_DB_USER,DB_PASSWORD=$_DB_PASSWORD,INSTANCE_CONNECTION_NAME=game-list-cloud:us-central1:gamelist-db'
+      - '--quiet'
+
+substitutions:
+  _DB_USER: postgres
+  _DB_PASSWORD: changeme
 
 options:
   logging: CLOUD_LOGGING_ONLY
