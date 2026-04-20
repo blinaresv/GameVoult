@@ -215,19 +215,29 @@ jobs:
 
               if (!item) {
                 console.log(`ℹ️ Issue #${issueNum} no está en el proyecto, agregándolo...`);
-                const { repository: { issue } } = await github.graphql(`
-                  query($owner: String!, $repo: String!, $num: Int!) {
-                    repository(owner: $owner, name: $repo) {
-                      issue(number: $num) { id }
+                let issueNodeId;
+                try {
+                  const { repository: { issue } } = await github.graphql(`
+                    query($owner: String!, $repo: String!, $num: Int!) {
+                      repository(owner: $owner, name: $repo) {
+                        issue(number: $num) { id }
+                      }
                     }
-                  }
-                `, { owner, repo: context.repo.repo, num: issueNum });
-
+                  `, { owner, repo: context.repo.repo, num: issueNum });
+                  issueNodeId = issue?.id;
+                } catch(e) {
+                  console.log(`⚠️ #${issueNum} no es un issue válido (puede ser un PR), saltando.`);
+                  continue;
+                }
+                if (!issueNodeId) {
+                  console.log(`⚠️ #${issueNum} no es un issue válido, saltando.`);
+                  continue;
+                }
                 const { addProjectV2ItemById: { item: newItem } } = await github.graphql(`
                   mutation($projectId: ID!, $contentId: ID!) {
                     addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) { item { id } }
                   }
-                `, { projectId: project.id, contentId: issue.id });
+                `, { projectId: project.id, contentId: issueNodeId });
                 item = newItem;
               }
 
