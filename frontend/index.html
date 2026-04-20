@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Gestor de Videojuegos</title>
+  <title>GameVault — Biblioteca de Videojuegos</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -11,8 +11,8 @@
 <div class="container">
 
   <header class="header">
-    <h1>🎮 Gestor de Videojuegos</h1>
-    <p>Organiza tus juegos por estado y categoría</p>
+    <h1>🎮 GameVault</h1>
+    <p>Tu biblioteca personal de videojuegos</p>
   </header>
 
   <!-- FORMULARIO -->
@@ -24,65 +24,85 @@
 
       <div class="grid">
         <div>
-          <label>Título</label>
-          <input type="text" id="titulo" required />
+          <label>Título *</label>
+          <input type="text" id="titulo" placeholder="Ej: The Witcher 3" required />
         </div>
 
         <div>
-          <label>Plataforma</label>
-          <input type="text" id="plataforma" required />
-        </div>
-
-        <div>
-          <label>Año</label>
-          <input type="number" id="anio" required />
+          <label>Año *</label>
+          <input type="number" id="anio" placeholder="Ej: 2015" min="1970" max="2100" required />
         </div>
 
         <div>
           <label>Categoría</label>
-          <select id="categoriaId" required></select>
+          <select id="categoriaId"></select>
         </div>
 
-        <!-- 🔥 NUEVO CAMPO -->
+        <div>
+          <label>Plataforma</label>
+          <select id="plataformaId"></select>
+        </div>
+
+        <div class="full">
+          <label>URL de imagen de portada</label>
+          <input type="url" id="imagenUrl" placeholder="https://..." />
+        </div>
+
+        <div class="full">
+          <label>Descripción</label>
+          <textarea id="descripcion" rows="2" placeholder="Breve descripción del juego..."></textarea>
+        </div>
+
         <div class="full">
           <label>Estado</label>
-          <select id="estado">
-            <option value="pendiente">Pendiente</option>
-            <option value="jugando">Jugando</option>
-            <option value="terminado">Terminado</option>
-            <option value="favorito">Favorito</option>
-          </select>
+          <div class="estado-radios">
+            <label class="radio-label pendiente-label">
+              <input type="radio" name="estado" value="PENDIENTE" checked /> Pendiente
+            </label>
+            <label class="radio-label jugando-label">
+              <input type="radio" name="estado" value="JUGANDO" /> Jugando
+            </label>
+            <label class="radio-label terminado-label">
+              <input type="radio" name="estado" value="TERMINADO" /> Terminado
+            </label>
+            <label class="radio-label favorito-label">
+              <input type="radio" name="estado" value="FAVORITO" /> Favorito
+            </label>
+          </div>
         </div>
       </div>
 
       <div class="buttons">
-        <button class="btn">Guardar</button>
+        <button type="submit" class="btn">Guardar</button>
         <button type="button" class="btn btn-gray" id="cancel-btn">Cancelar</button>
       </div>
     </form>
 
-    <p id="message"></p>
+    <p id="message" class="msg-form"></p>
   </section>
 
-  <!-- LISTA -->
+  <!-- BIBLIOTECA -->
   <section class="box">
     <div class="top-row">
       <h2>Videojuegos registrados</h2>
-
       <div class="tools">
-        <input type="text" id="search-input" placeholder="Buscar..." />
-        <select id="filter-category"></select>
-        <button class="btn btn-gray" id="reload-btn">Recargar</button>
+        <input type="text" id="search-input" placeholder="Buscar por título..." />
+        <select id="filter-estado">
+          <option value="">Todos los estados</option>
+          <option value="PENDIENTE">Pendiente</option>
+          <option value="JUGANDO">Jugando</option>
+          <option value="TERMINADO">Terminado</option>
+          <option value="FAVORITO">Favorito</option>
+        </select>
+        <select id="filter-category">
+          <option value="">Todas las categorías</option>
+        </select>
+        <button class="btn btn-gray" id="reload-btn">↺ Recargar</button>
       </div>
     </div>
 
     <div id="games-list" class="games-list"></div>
-  </section>
-
-  <!-- DETALLE -->
-  <section class="box">
-    <h2>Detalle</h2>
-    <div id="game-detail" class="detail-box"></div>
+    <p id="empty-msg" class="empty-msg" style="display:none">No se encontraron juegos.</p>
   </section>
 
 </div>
