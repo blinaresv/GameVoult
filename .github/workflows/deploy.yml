@@ -1,0 +1,41 @@
+name: 🚀 Deploy a Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+# ─────────────────────────────────────────────────────────────
+# Secrets requeridos en Settings → Secrets → Actions:
+#   GCP_SA_KEY          → JSON de la cuenta de servicio de GCP
+#   GCP_PROJECT_ID      → ID del proyecto GCP (game-list-cloud)
+# ─────────────────────────────────────────────────────────────
+
+jobs:
+  deploy:
+    name: Build y Deploy a Cloud Run
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Autenticar en Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configurar Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configurar Docker para Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Disparar Cloud Build
+        run: |
+          gcloud builds submit \
+            --config=cloudbuild.yaml \
+            --substitutions=_DB_USER=${{ secrets.DB_USER }},_DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            --project=${{ secrets.GCP_PROJECT_ID }}
