@@ -18,46 +18,68 @@
   <!-- ═══════════════ VISTA: BIBLIOTECA ═══════════════ -->
   <div id="vista-biblioteca">
 
-    <!-- FORMULARIO -->
-    <section class="box">
-      <h2 id="form-title">Agregar videojuego</h2>
+    <!-- BOTÓN ABRIR FORMULARIO -->
+    <div class="form-toggle-bar">
+      <button class="btn" id="btn-abrir-formulario">+ Agregar videojuego</button>
+    </div>
 
-      <form id="game-form">
+    <!-- FORMULARIO (colapsado por defecto) -->
+    <section class="box form-section" id="form-section" style="display:none">
+      <div class="form-section-header">
+        <h2 id="form-title">Agregar videojuego</h2>
+        <span id="form-mode-badge" class="form-mode-badge" style="display:none">Modo edición</span>
+      </div>
+
+      <form id="game-form" novalidate>
         <input type="hidden" id="game-id" />
 
         <div class="grid">
-          <div>
-            <label>Título *</label>
-            <input type="text" id="titulo" placeholder="Ej: The Witcher 3" required />
+
+          <!-- Columna izquierda: campos + preview de imagen -->
+          <div class="form-col-main">
+            <div class="field-group">
+              <label>Título <span class="req">*</span></label>
+              <input type="text" id="titulo" placeholder="Ej: The Witcher 3" />
+              <span class="field-error" id="error-titulo"></span>
+            </div>
+
+            <div class="field-group">
+              <label>Año <span class="req">*</span></label>
+              <input type="number" id="anio" placeholder="Ej: 2015" min="1970" max="2100" />
+              <span class="field-error" id="error-anio"></span>
+            </div>
+
+            <div class="field-group">
+              <label>Categoría</label>
+              <select id="categoriaId"></select>
+            </div>
+
+            <div class="field-group">
+              <label>Plataforma</label>
+              <select id="plataformaId"></select>
+            </div>
+
+            <div class="field-group">
+              <label>Descripción</label>
+              <textarea id="descripcion" rows="3" placeholder="Breve descripción del juego..."></textarea>
+            </div>
           </div>
 
-          <div>
-            <label>Año *</label>
-            <input type="number" id="anio" placeholder="Ej: 2015" min="1970" max="2100" required />
+          <!-- Columna derecha: imagen -->
+          <div class="form-col-imagen">
+            <div class="field-group">
+              <label>URL de imagen de portada</label>
+              <input type="url" id="imagenUrl" placeholder="https://..." />
+            </div>
+            <div class="imagen-preview-wrap">
+              <img id="imagen-preview" class="imagen-preview" src="" alt="Preview" style="display:none" />
+              <div id="imagen-preview-placeholder" class="imagen-preview-placeholder">🎮</div>
+            </div>
           </div>
 
-          <div>
-            <label>Categoría</label>
-            <select id="categoriaId"></select>
-          </div>
-
-          <div>
-            <label>Plataforma</label>
-            <select id="plataformaId"></select>
-          </div>
-
+          <!-- Estado: fila completa -->
           <div class="full">
-            <label>URL de imagen de portada</label>
-            <input type="url" id="imagenUrl" placeholder="https://..." />
-          </div>
-
-          <div class="full">
-            <label>Descripción</label>
-            <textarea id="descripcion" rows="2" placeholder="Breve descripción del juego..."></textarea>
-          </div>
-
-          <div class="full">
-            <label>Estado</label>
+            <label>Estado <span class="req">*</span></label>
             <div class="estado-radios">
               <label class="radio-label pendiente-label">
                 <input type="radio" name="estado" value="PENDIENTE" checked /> Pendiente
@@ -76,7 +98,7 @@
         </div>
 
         <div class="buttons">
-          <button type="submit" class="btn">Guardar</button>
+          <button type="submit" class="btn" id="btn-submit-form">Guardar</button>
           <button type="button" class="btn btn-gray" id="cancel-btn">Cancelar</button>
         </div>
       </form>
