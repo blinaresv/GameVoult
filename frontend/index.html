@@ -84,9 +84,12 @@
   <!-- BIBLIOTECA -->
   <section class="box">
     <div class="top-row">
-      <h2>Videojuegos registrados</h2>
+      <h2>Videojuegos registrados <span id="results-count" class="results-count"></span></h2>
       <div class="tools">
-        <input type="text" id="search-input" placeholder="Buscar por título..." />
+        <div class="search-wrapper">
+          <input type="text" id="search-input" placeholder="Buscar por título..." />
+          <button type="button" id="clear-search" class="clear-btn" title="Limpiar búsqueda" style="display:none">✕</button>
+        </div>
         <select id="filter-estado">
           <option value="">Todos los estados</option>
           <option value="PENDIENTE">Pendiente</option>
@@ -97,12 +100,13 @@
         <select id="filter-category">
           <option value="">Todas las categorías</option>
         </select>
+        <button class="btn btn-outline" id="clear-filters-btn">✕ Limpiar</button>
         <button class="btn btn-gray" id="reload-btn">↺ Recargar</button>
       </div>
     </div>
 
     <div id="games-list" class="games-list"></div>
-    <p id="empty-msg" class="empty-msg" style="display:none">No se encontraron juegos.</p>
+    <p id="empty-msg" class="empty-msg" style="display:none">No se encontraron juegos para los filtros aplicados.</p>
   </section>
 
 </div>
