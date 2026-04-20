@@ -8,6 +8,7 @@ let detalleJuegoId = null;
 
 // ── Biblioteca ──
 const form             = document.getElementById("game-form");
+const formSection      = document.getElementById("form-section");
 const gamesList        = document.getElementById("games-list");
 const emptyMsg         = document.getElementById("empty-msg");
 const categoriaSelect  = document.getElementById("categoriaId");
@@ -28,10 +29,15 @@ const detalleImagen      = document.getElementById("detalle-imagen");
 const detallePlaceholder = document.getElementById("detalle-placeholder");
 
 // ── Modal reseña ──
-const modalResena   = document.getElementById("modal-resena");
-const formResena    = document.getElementById("form-resena");
+const modalResena       = document.getElementById("modal-resena");
+const formResena        = document.getElementById("form-resena");
 const puntuacionSlider  = document.getElementById("resena-puntuacion");
 const puntuacionDisplay = document.getElementById("puntuacion-display");
+
+// ── Preview imagen en formulario ──
+const imagenUrlInput         = document.getElementById("imagenUrl");
+const imagenPreview          = document.getElementById("imagen-preview");
+const imagenPreviewPlaceholder = document.getElementById("imagen-preview-placeholder");
 
 // ════════════════════════════════════════════════════════
 //  INICIALIZACIÓN
@@ -41,9 +47,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   await Promise.all([cargarCategorias(), cargarPlataformas()]);
   await cargarVideojuegos();
 
-  // Biblioteca
+  // Formulario toggle
+  document.getElementById("btn-abrir-formulario").addEventListener("click", abrirFormulario);
   document.getElementById("reload-btn").addEventListener("click", cargarVideojuegos);
-  document.getElementById("cancel-btn").addEventListener("click", resetForm);
+  document.getElementById("cancel-btn").addEventListener("click", () => {
+    if (editandoId && !confirm("¿Descartar los cambios de edición?")) return;
+    resetForm();
+  });
+
+  // Preview de imagen en tiempo real
+  imagenUrlInput.addEventListener("input", actualizarPreviewImagen);
 
   searchInput.addEventListener("input", () => {
     clearSearchBtn.style.display = searchInput.value ? "block" : "none";
@@ -299,8 +312,75 @@ async function eliminarResena(id) {
 //  CRUD VIDEOJUEGO (formulario)
 // ════════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════════
+//  FORMULARIO: ABRIR / CERRAR / VALIDAR
+// ════════════════════════════════════════════════════════
+
+function abrirFormulario() {
+  formSection.style.display = "block";
+  document.getElementById("btn-abrir-formulario").style.display = "none";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function cerrarFormulario() {
+  formSection.style.display = "none";
+  document.getElementById("btn-abrir-formulario").style.display = "inline-block";
+}
+
+function actualizarPreviewImagen() {
+  const url = imagenUrlInput.value.trim();
+  if (url) {
+    imagenPreview.src = url;
+    imagenPreview.style.display = "block";
+    imagenPreviewPlaceholder.style.display = "none";
+    imagenPreview.onerror = () => {
+      imagenPreview.style.display = "none";
+      imagenPreviewPlaceholder.style.display = "flex";
+    };
+  } else {
+    imagenPreview.style.display = "none";
+    imagenPreviewPlaceholder.style.display = "flex";
+  }
+}
+
+function validarFormulario() {
+  let valido = true;
+
+  const titulo = document.getElementById("titulo").value.trim();
+  const anio   = document.getElementById("anio").value;
+  const errorTitulo = document.getElementById("error-titulo");
+  const errorAnio   = document.getElementById("error-anio");
+  const grupoTitulo = document.getElementById("titulo").closest(".field-group");
+  const grupoAnio   = document.getElementById("anio").closest(".field-group");
+
+  if (!titulo) {
+    errorTitulo.textContent = "El título es obligatorio.";
+    grupoTitulo.classList.add("has-error");
+    valido = false;
+  } else {
+    errorTitulo.textContent = "";
+    grupoTitulo.classList.remove("has-error");
+  }
+
+  if (!anio) {
+    errorAnio.textContent = "El año es obligatorio.";
+    grupoAnio.classList.add("has-error");
+    valido = false;
+  } else if (Number(anio) < 1970 || Number(anio) > 2100) {
+    errorAnio.textContent = "El año debe estar entre 1970 y 2100.";
+    grupoAnio.classList.add("has-error");
+    valido = false;
+  } else {
+    errorAnio.textContent = "";
+    grupoAnio.classList.remove("has-error");
+  }
+
+  return valido;
+}
+
 async function guardarVideojuego(e) {
   e.preventDefault();
+  if (!validarFormulario()) return;
 
   const estadoRadio = document.querySelector('input[name="estado"]:checked');
   const catId       = categoriaSelect.value;
@@ -310,7 +390,7 @@ async function guardarVideojuego(e) {
     titulo:      document.getElementById("titulo").value.trim(),
     anio:        Number(document.getElementById("anio").value),
     descripcion: document.getElementById("descripcion").value.trim() || null,
-    imagenUrl:   document.getElementById("imagenUrl").value.trim()   || null,
+    imagenUrl:   imagenUrlInput.value.trim() || null,
     estado:      estadoRadio?.value || "PENDIENTE",
     categoria:   catId  ? { id: Number(catId)  } : null,
     plataforma:  platId ? { id: Number(platId) } : null,
@@ -331,12 +411,11 @@ async function guardarVideojuego(e) {
     msg.textContent = editandoId ? "Juego actualizado." : "Juego agregado.";
     resetForm();
     await cargarVideojuegos();
+    setTimeout(() => { msg.textContent = ""; }, 3000);
   } else {
     msg.style.color = "#f87171";
-    msg.textContent = "Error al guardar. Revisa los campos.";
+    msg.textContent = "Error al guardar. Verifica los campos e inténtalo de nuevo.";
   }
-
-  setTimeout(() => { msg.textContent = ""; }, 3000);
 }
 
 function editar(id) {
@@ -345,17 +424,24 @@ function editar(id) {
 
   document.getElementById("form-title").textContent    = "Editar videojuego";
   document.getElementById("titulo").value              = j.titulo;
-  document.getElementById("anio").value                = j.anio || "";
+  document.getElementById("anio").value                = j.anio   || "";
   document.getElementById("descripcion").value         = j.descripcion || "";
-  document.getElementById("imagenUrl").value           = j.imagenUrl   || "";
+  imagenUrlInput.value                                 = j.imagenUrl   || "";
   categoriaSelect.value  = j.categoria?.id  || "";
   plataformaSelect.value = j.plataforma?.id || "";
 
   const radio = document.querySelector(`input[name="estado"][value="${j.estado}"]`);
   if (radio) radio.checked = true;
 
+  // Modo edición visual
+  formSection.classList.add("editing");
+  document.getElementById("form-mode-badge").style.display = "inline-block";
+  document.getElementById("btn-submit-form").textContent = "Guardar cambios";
+
+  actualizarPreviewImagen();
+
   editandoId = id;
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  abrirFormulario();
 }
 
 async function eliminar(id) {
@@ -366,9 +452,19 @@ async function eliminar(id) {
 
 function resetForm() {
   form.reset();
-  document.getElementById("form-title").textContent = "Agregar videojuego";
+  document.getElementById("form-title").textContent          = "Agregar videojuego";
+  document.getElementById("btn-submit-form").textContent     = "Guardar";
+  document.getElementById("form-mode-badge").style.display   = "none";
+  document.getElementById("error-titulo").textContent        = "";
+  document.getElementById("error-anio").textContent          = "";
+  document.getElementById("titulo").closest(".field-group").classList.remove("has-error");
+  document.getElementById("anio").closest(".field-group").classList.remove("has-error");
   document.querySelector('input[name="estado"][value="PENDIENTE"]').checked = true;
+  formSection.classList.remove("editing");
+  imagenPreview.style.display = "none";
+  imagenPreviewPlaceholder.style.display = "flex";
   editandoId = null;
+  cerrarFormulario();
 }
 
 function limpiarFiltros() {
