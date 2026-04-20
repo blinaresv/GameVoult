@@ -13,6 +13,9 @@ const plataformaSelect = document.getElementById("plataformaId");
 const searchInput  = document.getElementById("search-input");
 const filterEstado = document.getElementById("filter-estado");
 const filterCat    = document.getElementById("filter-category");
+const clearSearchBtn  = document.getElementById("clear-search");
+const clearFiltersBtn = document.getElementById("clear-filters-btn");
+const resultsCount    = document.getElementById("results-count");
 
 document.addEventListener("DOMContentLoaded", async () => {
   await Promise.all([cargarCategorias(), cargarPlataformas()]);
@@ -20,9 +23,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   document.getElementById("reload-btn").addEventListener("click", cargarVideojuegos);
   document.getElementById("cancel-btn").addEventListener("click", resetForm);
-  searchInput.addEventListener("input", renderizar);
+
+  searchInput.addEventListener("input", () => {
+    clearSearchBtn.style.display = searchInput.value ? "block" : "none";
+    renderizar();
+  });
+
+  clearSearchBtn.addEventListener("click", () => {
+    searchInput.value = "";
+    clearSearchBtn.style.display = "none";
+    renderizar();
+  });
+
   filterEstado.addEventListener("change", renderizar);
   filterCat.addEventListener("change", renderizar);
+
+  clearFiltersBtn.addEventListener("click", limpiarFiltros);
 });
 
 async function cargarCategorias() {
@@ -57,6 +73,7 @@ function renderizar() {
   const q       = searchInput.value.toLowerCase().trim();
   const estado  = filterEstado.value;
   const catId   = filterCat.value;
+  const hayFiltros = q || estado || catId;
 
   let lista = videojuegos.filter(j => {
     const matchTitulo = !q || j.titulo.toLowerCase().includes(q);
@@ -64,6 +81,12 @@ function renderizar() {
     const matchCat    = !catId  || String(j.categoria?.id) === catId;
     return matchTitulo && matchEstado && matchCat;
   });
+
+  resultsCount.textContent = hayFiltros
+    ? `(${lista.length} de ${videojuegos.length})`
+    : `(${videojuegos.length})`;
+
+  clearFiltersBtn.style.display = hayFiltros ? "inline-block" : "none";
 
   gamesList.innerHTML = "";
   emptyMsg.style.display = lista.length === 0 ? "block" : "none";
@@ -174,4 +197,12 @@ function resetForm() {
   document.getElementById("form-title").textContent = "Agregar videojuego";
   document.querySelector('input[name="estado"][value="PENDIENTE"]').checked = true;
   editandoId = null;
+}
+
+function limpiarFiltros() {
+  searchInput.value = "";
+  filterEstado.value = "";
+  filterCat.value = "";
+  clearSearchBtn.style.display = "none";
+  renderizar();
 }
