@@ -27,16 +27,14 @@ jobs:
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
-            const owner        = context.repo.owner;
-            const repo         = context.repo.repo;
-            const issueNumber  = context.payload.issue.number;
+            const owner         = context.repo.owner;
+            const issueNumber   = context.payload.issue.number;
             const projectNumber = parseInt('${{ vars.PROJECT_NUMBER }}' || '1');
-            const targetStatus = 'Ready';
+            const targetStatus  = 'Ready';
 
-            // 1. Obtener proyecto + campos + items
             const data = await github.graphql(`
-              query($owner: String!, $repo: String!, $num: Int!) {
-                repository(owner: $owner, name: $repo) {
+              query($owner: String!, $num: Int!) {
+                user(login: $owner) {
                   projectV2(number: $num) {
                     id
                     fields(first: 20) {
@@ -56,11 +54,10 @@ jobs:
                   }
                 }
               }
-            `, { owner, repo, num: projectNumber });
+            `, { owner, num: projectNumber });
 
-            const project = data.repository.projectV2;
+            const project = data.user.projectV2;
 
-            // 2. Si el issue NO está en el proyecto todavía, agregarlo
             let item = project.items.nodes.find(i => i.content?.number === issueNumber);
             if (!item) {
               const added = await github.graphql(`
@@ -76,7 +73,6 @@ jobs:
               item = added.addProjectV2ItemById.item;
             }
 
-            // 3. Buscar campo Status y opción "Ready"
             const statusField = project.fields.nodes.find(f => f.name === 'Status');
             const option = statusField?.options.find(
               o => o.name.toLowerCase() === targetStatus.toLowerCase()
@@ -86,7 +82,6 @@ jobs:
               return;
             }
 
-            // 4. Mover la card
             await github.graphql(`
               mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
                 updateProjectV2ItemFieldValue(input: {
@@ -118,15 +113,14 @@ jobs:
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
-            const owner        = context.repo.owner;
-            const repo         = context.repo.repo;
-            const issueNumber  = context.payload.issue.number;
+            const owner         = context.repo.owner;
+            const issueNumber   = context.payload.issue.number;
             const projectNumber = parseInt('${{ vars.PROJECT_NUMBER }}' || '1');
-            const targetStatus = 'In Progress';
+            const targetStatus  = 'In Progress';
 
             const data = await github.graphql(`
-              query($owner: String!, $repo: String!, $num: Int!) {
-                repository(owner: $owner, name: $repo) {
+              query($owner: String!, $num: Int!) {
+                user(login: $owner) {
                   projectV2(number: $num) {
                     id
                     fields(first: 20) {
@@ -146,9 +140,9 @@ jobs:
                   }
                 }
               }
-            `, { owner, repo, num: projectNumber });
+            `, { owner, num: projectNumber });
 
-            const project = data.repository.projectV2;
+            const project = data.user.projectV2;
             const item = project.items.nodes.find(i => i.content?.number === issueNumber);
             if (!item) {
               console.log(`⚠️ Issue #${issueNumber} no está vinculado al proyecto`);
@@ -195,13 +189,11 @@ jobs:
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
-            const owner        = context.repo.owner;
-            const repo         = context.repo.repo;
-            const pr           = context.payload.pull_request;
+            const owner         = context.repo.owner;
+            const pr            = context.payload.pull_request;
             const projectNumber = parseInt('${{ vars.PROJECT_NUMBER }}' || '1');
-            const targetStatus = 'Review';
+            const targetStatus  = 'Review';
 
-            // Extraer números de issue del body del PR (closes #N)
             const body = pr.body || '';
             const pattern = /(?:closes?|fixes?|resolves?)\s+#(\d+)/gi;
             const issueNumbers = [];
@@ -212,11 +204,12 @@ jobs:
 
             if (issueNumbers.length === 0) {
               console.log('ℹ️ No se encontraron issues vinculados en el body del PR');
+              return;
             }
 
             const data = await github.graphql(`
-              query($owner: String!, $repo: String!, $num: Int!) {
-                repository(owner: $owner, name: $repo) {
+              query($owner: String!, $num: Int!) {
+                user(login: $owner) {
                   projectV2(number: $num) {
                     id
                     fields(first: 20) {
@@ -236,9 +229,9 @@ jobs:
                   }
                 }
               }
-            `, { owner, repo, num: projectNumber });
+            `, { owner, num: projectNumber });
 
-            const project = data.repository.projectV2;
+            const project = data.user.projectV2;
             const statusField = project.fields.nodes.find(f => f.name === 'Status');
             const option = statusField?.options.find(
               o => o.name.toLowerCase() === targetStatus.toLowerCase()
@@ -310,11 +303,10 @@ jobs:
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
-            const owner        = context.repo.owner;
-            const repo         = context.repo.repo;
-            const pr           = context.payload.pull_request;
+            const owner         = context.repo.owner;
+            const pr            = context.payload.pull_request;
             const projectNumber = parseInt('${{ vars.PROJECT_NUMBER }}' || '1');
-            const targetStatus = 'Done';
+            const targetStatus  = 'Done';
 
             const body = (pr.body || '') + ' ' + (pr.title || '');
             const pattern = /(?:closes?|fixes?|resolves?)\s+#(\d+)/gi;
@@ -330,8 +322,8 @@ jobs:
             }
 
             const data = await github.graphql(`
-              query($owner: String!, $repo: String!, $num: Int!) {
-                repository(owner: $owner, name: $repo) {
+              query($owner: String!, $num: Int!) {
+                user(login: $owner) {
                   projectV2(number: $num) {
                     id
                     fields(first: 20) {
@@ -351,9 +343,9 @@ jobs:
                   }
                 }
               }
-            `, { owner, repo, num: projectNumber });
+            `, { owner, num: projectNumber });
 
-            const project = data.repository.projectV2;
+            const project = data.user.projectV2;
             const statusField = project.fields.nodes.find(f => f.name === 'Status');
             const option = statusField?.options.find(
               o => o.name.toLowerCase() === targetStatus.toLowerCase()
