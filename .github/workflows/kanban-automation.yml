@@ -308,6 +308,8 @@ jobs:
             const projectNumber = parseInt('${{ vars.PROJECT_NUMBER }}' || '1');
             const targetStatus  = 'Done';
 
+            console.log(`🔍 owner=${owner}, projectNumber=${projectNumber}`);
+
             const body = (pr.body || '') + ' ' + (pr.title || '');
             const pattern = /(?:closes?|fixes?|resolves?)\s+#(\d+)/gi;
             const issueNumbers = [];
@@ -315,35 +317,43 @@ jobs:
             while ((m = pattern.exec(body)) !== null) {
               issueNumbers.push(parseInt(m[1]));
             }
+            console.log(`🔍 Issues encontrados: ${JSON.stringify(issueNumbers)}`);
 
             if (issueNumbers.length === 0) {
               console.log('ℹ️ No se encontraron issues vinculados');
               return;
             }
 
-            const data = await github.graphql(`
-              query($owner: String!, $num: Int!) {
-                user(login: $owner) {
-                  projectV2(number: $num) {
-                    id
-                    fields(first: 20) {
-                      nodes {
-                        ... on ProjectV2SingleSelectField {
-                          id name
-                          options { id name }
+            let data;
+            try {
+              data = await github.graphql(`
+                query($owner: String!, $num: Int!) {
+                  user(login: $owner) {
+                    projectV2(number: $num) {
+                      id
+                      fields(first: 20) {
+                        nodes {
+                          ... on ProjectV2SingleSelectField {
+                            id name
+                            options { id name }
+                          }
                         }
                       }
-                    }
-                    items(first: 100) {
-                      nodes {
-                        id
-                        content { ... on Issue { number } }
+                      items(first: 100) {
+                        nodes {
+                          id
+                          content { ... on Issue { number } }
+                        }
                       }
                     }
                   }
                 }
-              }
-            `, { owner, num: projectNumber });
+              `, { owner, num: projectNumber });
+            } catch (err) {
+              console.error(`❌ GraphQL error: ${err.message}`);
+              console.error(`❌ Detalles: ${JSON.stringify(err.errors || {})}`);
+              throw err;
+            }
 
             const project = data.user.projectV2;
             const statusField = project.fields.nodes.find(f => f.name === 'Status');
