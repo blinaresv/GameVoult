@@ -1,23 +1,17 @@
 steps:
-  # 1. Compilar el proyecto (genera el .jar)
-  - name: 'maven:3.9.6-eclipse-temurin-21'
-    entrypoint: mvn
-    args: ['clean', 'package', '-DskipTests']
-    dir: 'backend'
-
-  # 2. Construir la imagen Docker
+  # 1. Construir imagen Docker unificada (backend + frontend)
+  #    El Maven build ocurre DENTRO del Dockerfile multi-stage
+  #    El contexto de build es la raíz del repositorio
   - name: 'gcr.io/cloud-builders/docker'
     args:
       [
         'build',
-        '-t',
-        'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:$COMMIT_SHA',
-        '-t',
-        'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:latest',
-        'backend'
+        '-t', 'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:$COMMIT_SHA',
+        '-t', 'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:latest',
+        '.'
       ]
 
-  # 3. Push
+  # 2. Push de la imagen al Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       [
@@ -26,15 +20,12 @@ steps:
         'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api'
       ]
 
-  # 4. Deploy a Cloud Run (YA con variables y Cloud SQL 🔥)
+  # 3. Deploy a Cloud Run con la nueva imagen unificada
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       [
-        'run',
-        'services',
-        'update',
-        'game-list-api',
+        'run', 'services', 'update', 'game-list-api',
         '--image=us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api:$COMMIT_SHA',
         '--region=us-central1',
         '--add-cloudsql-instances=game-list-cloud:us-central1:gamelist-db',
@@ -42,9 +33,9 @@ steps:
         '--quiet'
       ]
 
-# 🔧 NECESARIO por el error que tenías
 options:
   logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
 
 images:
   - 'us-central1-docker.pkg.dev/game-list-cloud/cloud-run-source-deploy/blinaresv-game_list_cloud/game-list-api'
