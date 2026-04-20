@@ -12,6 +12,11 @@ on:
 #   PROJECT_NUMBER → número del proyecto (ej: 1)  ← en Variables, no Secrets
 # ─────────────────────────────────────────────────────────────
 
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
 jobs:
 
   # ══════════════════════════════════════════════════════════
