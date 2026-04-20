@@ -273,7 +273,7 @@ jobs:
       - name: Comentar en el PR
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
             await github.rest.issues.createComment({
@@ -397,7 +397,7 @@ jobs:
       - name: Comentar merge exitoso
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
             await github.rest.issues.createComment({
