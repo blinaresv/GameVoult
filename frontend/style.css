@@ -179,6 +179,60 @@ textarea {
   font-size: 13px;
 }
 
+/* Search wrapper con botón limpiar inline */
+.search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-wrapper input {
+  padding-right: 32px;
+}
+
+.clear-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.clear-btn:hover { color: #e2e8f0; }
+
+/* Contador de resultados */
+.results-count {
+  font-size: 13px;
+  font-weight: 400;
+  color: #64748b;
+  margin-left: 8px;
+}
+
+/* Botón limpiar todos los filtros */
+.btn-outline {
+  background: transparent;
+  border: 1px solid #475569;
+  color: #94a3b8;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.btn-outline:hover {
+  background: #1e293b;
+  border-color: #64748b;
+  color: #e2e8f0;
+}
+
+/* Highlight cuando hay filtros activos */
+.filters-active .tools input,
+.filters-active .tools select {
+  border-color: #3b82f6;
+}
+
 /* ── Games grid ── */
 .games-list {
   display: grid;
