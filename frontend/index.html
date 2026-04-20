@@ -24,6 +24,30 @@
   <!-- ═══════════════ VISTA: BIBLIOTECA ═══════════════ -->
   <div id="vista-biblioteca">
 
+    <!-- ESTADÍSTICAS -->
+    <div id="stats-bar" class="stats-bar">
+      <button class="stat-pill stat-total active" data-estado="" id="stat-TOTAL">
+        <span class="stat-label">Total</span>
+        <span class="stat-num" id="num-TOTAL">—</span>
+      </button>
+      <button class="stat-pill stat-pendiente" data-estado="PENDIENTE" id="stat-PENDIENTE">
+        <span class="stat-label">Pendiente</span>
+        <span class="stat-num" id="num-PENDIENTE">—</span>
+      </button>
+      <button class="stat-pill stat-jugando" data-estado="JUGANDO" id="stat-JUGANDO">
+        <span class="stat-label">Jugando</span>
+        <span class="stat-num" id="num-JUGANDO">—</span>
+      </button>
+      <button class="stat-pill stat-terminado" data-estado="TERMINADO" id="stat-TERMINADO">
+        <span class="stat-label">Terminado</span>
+        <span class="stat-num" id="num-TERMINADO">—</span>
+      </button>
+      <button class="stat-pill stat-favorito" data-estado="FAVORITO" id="stat-FAVORITO">
+        <span class="stat-label">Favorito</span>
+        <span class="stat-num" id="num-FAVORITO">—</span>
+      </button>
+    </div>
+
     <!-- BOTÓN ABRIR FORMULARIO -->
     <div class="form-toggle-bar">
       <button class="btn" id="btn-abrir-formulario">+ Agregar videojuego</button>
