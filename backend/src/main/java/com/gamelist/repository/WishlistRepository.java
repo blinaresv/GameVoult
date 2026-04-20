@@ -21,4 +21,7 @@ public interface WishlistRepository extends JpaRepository<Wishlist, Long> {
             @Param("titulo")    String titulo,
             @Param("prioridad") PrioridadWishlist prioridad
     );
+
+    List<Wishlist> findByPrioridad(PrioridadWishlist prioridad);
+    List<Wishlist> findByTituloContainingIgnoreCase(String titulo);
 }
