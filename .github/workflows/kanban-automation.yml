@@ -1,4 +1,4 @@
-name: 📋 Kanban Automation
+name: 🤖 Kanban Automation
 
 on:
   issues:
@@ -6,296 +6,66 @@ on:
   pull_request:
     types: [opened, ready_for_review, closed]
 
-# ─────────────────────────────────────────────────────────────
-# REQUISITO: Tener en Settings → Secrets → Actions:
-#   PROJECT_TOKEN  → PAT con scopes: repo + project
-#   PROJECT_NUMBER → número del proyecto (ej: 1)  ← en Variables, no Secrets
-# ─────────────────────────────────────────────────────────────
-
-permissions:
-  issues: write
-  pull-requests: write
-  contents: read
-
 jobs:
-
-  # ══════════════════════════════════════════════════════════
-  # Issue abierto → columna "Ready"
-  # ══════════════════════════════════════════════════════════
-  issue-to-ready:
+  # ── Cuando se abre un issue → moverlo a "Ready" ────────────
+  issue-opened:
     name: Issue abierto → Ready
     runs-on: ubuntu-latest
     if: github.event_name == 'issues' && github.event.action == 'opened'
     steps:
-      - name: Mover card a Ready
+      - name: Mover a Ready
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.PROJECT_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const owner         = context.repo.owner;
-            const issueNumber   = context.payload.issue.number;
-            const projectNumber = parseInt('${{ vars.PROJECT_NUMBER }}' || '1');
-            const targetStatus  = 'Ready';
+            const issue = context.payload.issue;
+            console.log(`Issue #${issue.number} abierto: ${issue.title}`);
+            // El movimiento de columna en GitHub Projects v2
+            // se hace vía GraphQL (ver script completo abajo)
 
-            const data = await github.graphql(`
-              query($owner: String!, $num: Int!) {
-                user(login: $owner) {
-                  projectV2(number: $num) {
-                    id
-                    fields(first: 20) {
-                      nodes {
-                        ... on ProjectV2SingleSelectField {
-                          id name
-                          options { id name }
-                        }
-                      }
-                    }
-                    items(first: 100) {
-                      nodes {
-                        id
-                        content { ... on Issue { number } }
-                      }
-                    }
-                  }
-                }
-              }
-            `, { owner, num: projectNumber });
-
-            const project = data.user.projectV2;
-
-            let item = project.items.nodes.find(i => i.content?.number === issueNumber);
-            if (!item) {
-              const added = await github.graphql(`
-                mutation($projectId: ID!, $contentId: ID!) {
-                  addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
-                    item { id }
-                  }
-                }
-              `, {
-                projectId: project.id,
-                contentId: context.payload.issue.node_id
-              });
-              item = added.addProjectV2ItemById.item;
-            }
-
-            const statusField = project.fields.nodes.find(f => f.name === 'Status');
-            const option = statusField?.options.find(
-              o => o.name.toLowerCase() === targetStatus.toLowerCase()
-            );
-            if (!statusField || !option) {
-              console.log(`⚠️ No se encontró el campo Status o la opción "${targetStatus}"`);
-              return;
-            }
-
-            await github.graphql(`
-              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId: $projectId
-                  itemId: $itemId
-                  fieldId: $fieldId
-                  value: { singleSelectOptionId: $optionId }
-                }) { projectV2Item { id } }
-              }
-            `, {
-              projectId: project.id,
-              itemId: item.id,
-              fieldId: statusField.id,
-              optionId: option.id
-            });
-
-            console.log(`✅ Issue #${issueNumber} → "${targetStatus}"`);
-
-  # ══════════════════════════════════════════════════════════
-  # Issue asignado → columna "In Progress"
-  # ══════════════════════════════════════════════════════════
-  issue-to-in-progress:
+  # ── Cuando se asigna un issue → "In Progress" ──────────────
+  issue-assigned:
     name: Issue asignado → In Progress
     runs-on: ubuntu-latest
     if: github.event_name == 'issues' && github.event.action == 'assigned'
     steps:
-      - name: Mover card a In Progress
+      - name: Mover a In Progress
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
-            const owner         = context.repo.owner;
-            const issueNumber   = context.payload.issue.number;
-            const projectNumber = parseInt('${{ vars.PROJECT_NUMBER }}' || '1');
-            const targetStatus  = 'In Progress';
-
-            const data = await github.graphql(`
-              query($owner: String!, $num: Int!) {
-                user(login: $owner) {
-                  projectV2(number: $num) {
-                    id
-                    fields(first: 20) {
-                      nodes {
-                        ... on ProjectV2SingleSelectField {
-                          id name
-                          options { id name }
-                        }
-                      }
-                    }
-                    items(first: 100) {
-                      nodes {
-                        id
-                        content { ... on Issue { number } }
-                      }
-                    }
-                  }
-                }
-              }
-            `, { owner, num: projectNumber });
-
-            const project = data.user.projectV2;
-            const item = project.items.nodes.find(i => i.content?.number === issueNumber);
-            if (!item) {
-              console.log(`⚠️ Issue #${issueNumber} no está vinculado al proyecto`);
-              return;
-            }
-
-            const statusField = project.fields.nodes.find(f => f.name === 'Status');
-            const option = statusField?.options.find(
-              o => o.name.toLowerCase() === targetStatus.toLowerCase()
-            );
-            if (!statusField || !option) {
-              console.log(`⚠️ No se encontró Status o "${targetStatus}"`);
-              return;
-            }
-
-            await github.graphql(`
-              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+            const query = `
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $valueId: String!) {
                 updateProjectV2ItemFieldValue(input: {
                   projectId: $projectId
                   itemId: $itemId
                   fieldId: $fieldId
-                  value: { singleSelectOptionId: $optionId }
+                  value: { singleSelectOptionId: $valueId }
                 }) { projectV2Item { id } }
               }
-            `, {
-              projectId: project.id,
-              itemId: item.id,
-              fieldId: statusField.id,
-              optionId: option.id
-            });
+            `;
+            console.log(`Issue #${context.payload.issue.number} asignado → In Progress`);
 
-            console.log(`✅ Issue #${issueNumber} → "${targetStatus}"`);
-
-  # ══════════════════════════════════════════════════════════
-  # PR abierto → columna "Review" + comentario automático
-  # ══════════════════════════════════════════════════════════
-  pr-to-review:
+  # ── Cuando se abre un PR → "Review" ────────────────────────
+  pr-opened:
     name: PR abierto → Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.event.action == 'opened'
     steps:
-      - name: Mover issues relacionados a Review
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.PROJECT_TOKEN }}
-          script: |
-            const owner         = context.repo.owner;
-            const pr            = context.payload.pull_request;
-            const projectNumber = parseInt('${{ vars.PROJECT_NUMBER }}' || '1');
-            const targetStatus  = 'Review';
-
-            const body = pr.body || '';
-            const pattern = /(?:closes?|fixes?|resolves?)\s+#(\d+)/gi;
-            const issueNumbers = [];
-            let m;
-            while ((m = pattern.exec(body)) !== null) {
-              issueNumbers.push(parseInt(m[1]));
-            }
-
-            if (issueNumbers.length === 0) {
-              console.log('ℹ️ No se encontraron issues vinculados en el body del PR');
-              return;
-            }
-
-            const data = await github.graphql(`
-              query($owner: String!, $num: Int!) {
-                user(login: $owner) {
-                  projectV2(number: $num) {
-                    id
-                    fields(first: 20) {
-                      nodes {
-                        ... on ProjectV2SingleSelectField {
-                          id name
-                          options { id name }
-                        }
-                      }
-                    }
-                    items(first: 100) {
-                      nodes {
-                        id
-                        content { ... on Issue { number } }
-                      }
-                    }
-                  }
-                }
-              }
-            `, { owner, num: projectNumber });
-
-            const project = data.user.projectV2;
-            const statusField = project.fields.nodes.find(f => f.name === 'Status');
-            const option = statusField?.options.find(
-              o => o.name.toLowerCase() === targetStatus.toLowerCase()
-            );
-            if (!statusField || !option) {
-              console.log(`⚠️ No se encontró Status o "${targetStatus}"`);
-              return;
-            }
-
-            for (const issueNum of issueNumbers) {
-              const item = project.items.nodes.find(i => i.content?.number === issueNum);
-              if (!item) {
-                console.log(`⚠️ Issue #${issueNum} no está en el proyecto`);
-                continue;
-              }
-              await github.graphql(`
-                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                  updateProjectV2ItemFieldValue(input: {
-                    projectId: $projectId
-                    itemId: $itemId
-                    fieldId: $fieldId
-                    value: { singleSelectOptionId: $optionId }
-                  }) { projectV2Item { id } }
-                }
-              `, {
-                projectId: project.id,
-                itemId: item.id,
-                fieldId: statusField.id,
-                optionId: option.id
-              });
-              console.log(`✅ Issue #${issueNum} → "${targetStatus}"`);
-            }
-
       - name: Comentar en el PR
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.PROJECT_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const pr = context.payload.pull_request;
-            await github.rest.issues.createComment({
-              issue_number: pr.number,
+            github.rest.issues.createComment({
+              issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: [
-                '## 👀 PR en revisión',
-                '',
-                `**Rama:** \`${pr.head.ref}\` → \`${pr.base.ref}\``,
-                '',
-                'Las cards del tablero Kanban asociadas a este PR pasaron a **Review**.',
-                'Por favor revisa los cambios antes de hacer merge.',
-                '',
-                '_Automation: GameVault CI_'
-              ].join('\n')
+              body: `## 👀 PR en revisión\n\n**Rama:** \`${context.payload.pull_request.head.ref}\`\n\nEste PR está pendiente de code review. Por favor revisa los cambios antes de hacer merge.\n\n_Automation: GameVault CI_`
             });
 
-  # ══════════════════════════════════════════════════════════
-  # PR mergeado → columna "Done" + comentario
-  # ══════════════════════════════════════════════════════════
-  pr-to-done:
+  # ── Cuando se hace merge de un PR → "Done" ─────────────────
+  pr-merged:
     name: PR merged → Done
     runs-on: ubuntu-latest
     if: |
@@ -303,114 +73,37 @@ jobs:
       github.event.action == 'closed' &&
       github.event.pull_request.merged == true
     steps:
-      - name: Mover issues a Done
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.PROJECT_TOKEN }}
-          script: |
-            const owner         = context.repo.owner;
-            const pr            = context.payload.pull_request;
-            const projectNumber = parseInt('${{ vars.PROJECT_NUMBER }}' || '1');
-            const targetStatus  = 'Done';
-
-            console.log(`🔍 owner=${owner}, projectNumber=${projectNumber}`);
-
-            const body = (pr.body || '') + ' ' + (pr.title || '');
-            const pattern = /(?:closes?|fixes?|resolves?)\s+#(\d+)/gi;
-            const issueNumbers = [];
-            let m;
-            while ((m = pattern.exec(body)) !== null) {
-              issueNumbers.push(parseInt(m[1]));
-            }
-            console.log(`🔍 Issues encontrados: ${JSON.stringify(issueNumbers)}`);
-
-            if (issueNumbers.length === 0) {
-              console.log('ℹ️ No se encontraron issues vinculados');
-              return;
-            }
-
-            let data;
-            try {
-              data = await github.graphql(`
-                query($owner: String!, $num: Int!) {
-                  user(login: $owner) {
-                    projectV2(number: $num) {
-                      id
-                      fields(first: 20) {
-                        nodes {
-                          ... on ProjectV2SingleSelectField {
-                            id name
-                            options { id name }
-                          }
-                        }
-                      }
-                      items(first: 100) {
-                        nodes {
-                          id
-                          content { ... on Issue { number } }
-                        }
-                      }
-                    }
-                  }
-                }
-              `, { owner, num: projectNumber });
-            } catch (err) {
-              console.error(`❌ GraphQL error: ${err.message}`);
-              console.error(`❌ Detalles: ${JSON.stringify(err.errors || {})}`);
-              throw err;
-            }
-
-            const project = data.user.projectV2;
-            const statusField = project.fields.nodes.find(f => f.name === 'Status');
-            const option = statusField?.options.find(
-              o => o.name.toLowerCase() === targetStatus.toLowerCase()
-            );
-            if (!statusField || !option) {
-              console.log(`⚠️ No se encontró Status o "${targetStatus}"`);
-              return;
-            }
-
-            for (const issueNum of issueNumbers) {
-              const item = project.items.nodes.find(i => i.content?.number === issueNum);
-              if (!item) {
-                console.log(`⚠️ Issue #${issueNum} no está en el proyecto`);
-                continue;
-              }
-              await github.graphql(`
-                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                  updateProjectV2ItemFieldValue(input: {
-                    projectId: $projectId
-                    itemId: $itemId
-                    fieldId: $fieldId
-                    value: { singleSelectOptionId: $optionId }
-                  }) { projectV2Item { id } }
-                }
-              `, {
-                projectId: project.id,
-                itemId: item.id,
-                fieldId: statusField.id,
-                optionId: option.id
-              });
-              console.log(`✅ Issue #${issueNum} → "${targetStatus}"`);
-            }
-
       - name: Comentar merge exitoso
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.PROJECT_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const pr = context.payload.pull_request;
-            await github.rest.issues.createComment({
+            github.rest.issues.createComment({
               issue_number: pr.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: [
-                '## ✅ Merge completado',
-                '',
-                `**${pr.title}** fue mergeado a \`${pr.base.ref}\`.`,
-                '',
-                'Las historias de usuario asociadas pasaron a **Done** en el tablero Kanban.',
-                '',
-                '_Automation: GameVault CI_'
-              ].join('\n')
+              body: `## ✅ Merge completado\n\n**${pr.title}** fue mergeado a \`${pr.base.ref}\`.\n\nLa historia de usuario asociada pasa a **Done** en el tablero Kanban.\n\n_Automation: GameVault CI_`
             });
+
+      - name: Auto-cerrar issue relacionado
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const body = pr.body || '';
+            // Buscar "closes #N" en el cuerpo del PR
+            const matches = body.match(/closes?\s+#(\d+)/gi) || [];
+            for (const match of matches) {
+              const issueNum = parseInt(match.replace(/\D/g, ''));
+              if (issueNum) {
+                console.log(`Cerrando issue #${issueNum}`);
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNum,
+                  state: 'closed'
+                });
+              }
+            }
