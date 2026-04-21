@@ -201,6 +201,11 @@ async function cargarPlataformas() {
 
 async function cargarVideojuegos() {
   const res = await fetch(`${API_URL}/videojuegos`);
+  if (!res.ok) {
+    gamesList.innerHTML = `<p style="color:#f87171;padding:20px;text-align:center">
+      Error al cargar los videojuegos (${res.status}). Intenta recargar la página.</p>`;
+    return;
+  }
   videojuegos = await res.json();
   renderizar();
   await cargarEstadisticas();
@@ -242,7 +247,22 @@ function renderizar() {
   clearFiltersBtn.style.display = hayFiltros ? "inline-block" : "none";
 
   gamesList.innerHTML = "";
-  emptyMsg.style.display = lista.length === 0 ? "block" : "none";
+
+  if (lista.length === 0) {
+    if (videojuegos.length === 0) {
+      gamesList.innerHTML = `
+        <div style="text-align:center;padding:48px 20px;color:var(--text2)">
+          <div style="font-size:3rem;margin-bottom:16px">🎮</div>
+          <p style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:8px">Tu biblioteca está vacía</p>
+          <p style="font-size:14px;margin-bottom:20px">Agrega tu primer videojuego con el botón de arriba.</p>
+        </div>`;
+    } else {
+      emptyMsg.style.display = "block";
+    }
+    return;
+  }
+
+  emptyMsg.style.display = "none";
 
   lista.forEach(j => {
     const card = document.createElement("div");
@@ -366,10 +386,10 @@ async function cargarResenas(videojuegoId) {
 async function guardarResena(e) {
   e.preventDefault();
   const data = {
-    autor:      document.getElementById("resena-autor").value.trim(),
-    puntuacion: Number(puntuacionSlider.value),
-    comentario: document.getElementById("resena-comentario").value.trim() || null,
-    videojuego: { id: detalleJuegoId },
+    autor:        document.getElementById("resena-autor").value.trim(),
+    puntuacion:   Number(puntuacionSlider.value),
+    comentario:   document.getElementById("resena-comentario").value.trim() || null,
+    videojuegoId: detalleJuegoId,
   };
 
   const res = await fetch(`${API_URL}/resenas`, {
