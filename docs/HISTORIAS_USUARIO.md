@@ -347,3 +347,32 @@ Para que el frontend pueda mostrar y gestionar mi wishlist de forma persistente
 - [ ] GET /api/wishlist?prioridad=ALTA filtra por prioridad
 - [ ] GET /api/wishlist?titulo=star busca por título parcial
 - [ ] Relaciones con Plataforma y Categoria opcionales
+
+---
+
+## HU-19 | Rediseño visual del frontend (CSS/HTML base)
+**Rama:** `feature/sprint2-frontend-redesign`
+**Responsable:** @Persona2
+**Sprint:** 2 | **Estimación:** 3 puntos | **Tipo:** Feature | **Prioridad:** Alta
+
+### Como usuario de GameVault
+Quiero una interfaz moderna con tema oscuro y tipografía editorial
+Para tener una experiencia visual atractiva y coherente en toda la aplicación
+
+### Criterios de Aceptación:
+- [ ] Fondo de la app cambia a tema oscuro usando `#0d0f14` como color base
+- [ ] Se importan las fuentes Bebas Neue (títulos) y DM Sans (cuerpo) desde Google Fonts
+- [ ] Se definen variables CSS globales: `--bg`, `--surface`, `--surface2`, `--border`, `--accent`, `--text`, `--muted`
+- [ ] Se definen variables CSS por estado: `--JUGANDO: #6c63ff`, `--PENDIENTE: #f59e0b`, `--TERMINADO: #22c55e`, `--FAVORITO: #ff6584`
+- [ ] Navbar sticky con logo 🎮, nombre "GameVault" y botones de navegación (Biblioteca, Wishlist, + Agregar)
+- [ ] Todos los inputs, selects y textareas tienen estilo oscuro consistente con el tema
+- [ ] Botones primarios y secundarios definidos globalmente con variables CSS
+- [ ] Diseño responsive: media query `max-width: 700px` ajusta columnas a 1
+- [ ] El diseño base aplica a todas las secciones (biblioteca, formulario, modales, detalle)
+- [ ] Cards con hover effect: `transform: translateY(-4px)` + sombra al pasar el mouse
+
+## Estimación: 3 puntos
+## Sprint: Sprint 2
+## Responsable: @Persona2
+## Tipo: Feature
+## Prioridad: Alta
