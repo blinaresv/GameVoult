@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GameVault — Biblioteca de Videojuegos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="container">
+
+  <header class="header">
+    <h1>🎮 GameVault</h1>
+    <p>Tu biblioteca personal de videojuegos</p>
+  </header>
+
+  <!-- ═══════════════ NAVEGACIÓN ═══════════════ -->
+  <nav class="nav-tabs">
+    <button class="nav-tab active" id="tab-biblioteca" data-vista="biblioteca">🎮 Biblioteca</button>
+    <button class="nav-tab" id="tab-wishlist"  data-vista="wishlist">⭐ Wishlist</button>
+  </nav>
+
+  <!-- ═══════════════ VISTA: BIBLIOTECA ═══════════════ -->
+  <div id="vista-biblioteca">
+
+    <!-- ESTADÍSTICAS -->
+    <div id="stats-bar" class="stats-bar">
+      <button class="stat-pill stat-total active" data-estado="" id="stat-TOTAL">
+        <span class="stat-label">Total</span>
+        <span class="stat-num" id="num-TOTAL">—</span>
+      </button>
+      <button class="stat-pill stat-pendiente" data-estado="PENDIENTE" id="stat-PENDIENTE">
+        <span class="stat-label">Pendiente</span>
+        <span class="stat-num" id="num-PENDIENTE">—</span>
+      </button>
+      <button class="stat-pill stat-jugando" data-estado="JUGANDO" id="stat-JUGANDO">
+        <span class="stat-label">Jugando</span>
+        <span class="stat-num" id="num-JUGANDO">—</span>
+      </button>
+      <button class="stat-pill stat-terminado" data-estado="TERMINADO" id="stat-TERMINADO">
+        <span class="stat-label">Terminado</span>
+        <span class="stat-num" id="num-TERMINADO">—</span>
+      </button>
+      <button class="stat-pill stat-favorito" data-estado="FAVORITO" id="stat-FAVORITO">
+        <span class="stat-label">Favorito</span>
+        <span class="stat-num" id="num-FAVORITO">—</span>
+      </button>
+    </div>
+
+    <!-- BOTÓN ABRIR FORMULARIO -->
+    <div class="form-toggle-bar">
+      <button class="btn" id="btn-abrir-formulario">+ Agregar videojuego</button>
+    </div>
+
+    <!-- FORMULARIO (colapsado por defecto) -->
+    <section class="box form-section" id="form-section" style="display:none">
+      <div class="form-section-header">
+        <h2 id="form-title">Agregar videojuego</h2>
+        <span id="form-mode-badge" class="form-mode-badge" style="display:none">Modo edición</span>
+      </div>
+
+      <form id="game-form" novalidate>
+        <input type="hidden" id="game-id" />
+
+        <div class="grid">
+
+          <!-- Columna izquierda: campos + preview de imagen -->
+          <div class="form-col-main">
+            <div class="field-group">
+              <label>Título <span class="req">*</span></label>
+              <input type="text" id="titulo" placeholder="Ej: The Witcher 3" />
+              <span class="field-error" id="error-titulo"></span>
+            </div>
+
+            <div class="field-group">
+              <label>Año <span class="req">*</span></label>
+              <input type="number" id="anio" placeholder="Ej: 2015" min="1970" max="2100" />
+              <span class="field-error" id="error-anio"></span>
+            </div>
+
+            <div class="field-group">
+              <label>Categoría</label>
+              <select id="categoriaId"></select>
+            </div>
+
+            <div class="field-group">
+              <label>Plataforma</label>
+              <select id="plataformaId"></select>
+            </div>
+
+            <div class="field-group">
+              <label>Descripción</label>
+              <textarea id="descripcion" rows="3" placeholder="Breve descripción del juego..."></textarea>
+            </div>
+          </div>
+
+          <!-- Columna derecha: imagen -->
+          <div class="form-col-imagen">
+            <div class="field-group">
+              <label>URL de imagen de portada</label>
+              <input type="url" id="imagenUrl" placeholder="https://..." />
+            </div>
+            <div class="imagen-preview-wrap">
+              <img id="imagen-preview" class="imagen-preview" src="" alt="Preview" style="display:none" />
+              <div id="imagen-preview-placeholder" class="imagen-preview-placeholder">🎮</div>
+            </div>
+          </div>
+
+          <!-- Estado: fila completa -->
+          <div class="full">
+            <label>Estado <span class="req">*</span></label>
+            <div class="estado-radios">
+              <label class="radio-label pendiente-label">
+                <input type="radio" name="estado" value="PENDIENTE" checked /> Pendiente
+              </label>
+              <label class="radio-label jugando-label">
+                <input type="radio" name="estado" value="JUGANDO" /> Jugando
+              </label>
+              <label class="radio-label terminado-label">
+                <input type="radio" name="estado" value="TERMINADO" /> Terminado
+              </label>
+              <label class="radio-label favorito-label">
+                <input type="radio" name="estado" value="FAVORITO" /> Favorito
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="buttons">
+          <button type="submit" class="btn" id="btn-submit-form">Guardar</button>
+          <button type="button" class="btn btn-gray" id="cancel-btn">Cancelar</button>
+        </div>
+      </form>
+
+      <p id="message" class="msg-form"></p>
+    </section>
+
+    <!-- BIBLIOTECA -->
+    <section class="box">
+      <div class="top-row">
+        <h2>Videojuegos registrados <span id="results-count" class="results-count"></span></h2>
+        <div class="tools">
+          <div class="search-wrapper">
+            <input type="text" id="search-input" placeholder="Buscar por título..." />
+            <button type="button" id="clear-search" class="clear-btn" title="Limpiar búsqueda" style="display:none">✕</button>
+          </div>
+          <select id="filter-estado">
+            <option value="">Todos los estados</option>
+            <option value="PENDIENTE">Pendiente</option>
+            <option value="JUGANDO">Jugando</option>
+            <option value="TERMINADO">Terminado</option>
+            <option value="FAVORITO">Favorito</option>
+          </select>
+          <select id="filter-category">
+            <option value="">Todas las categorías</option>
+          </select>
+          <button class="btn btn-outline" id="clear-filters-btn">✕ Limpiar</button>
+          <button class="btn btn-gray" id="reload-btn">↺ Recargar</button>
+        </div>
+      </div>
+
+      <div id="games-list" class="games-list"></div>
+      <p id="empty-msg" class="empty-msg" style="display:none">No se encontraron juegos para los filtros aplicados.</p>
+    </section>
+
+  </div><!-- /vista-biblioteca -->
+
+  <!-- ═══════════════ VISTA: DETALLE ═══════════════ -->
+  <div id="vista-detalle" style="display:none">
+
+    <button class="btn btn-gray btn-back" id="btn-volver">← Volver a la biblioteca</button>
+
+    <!-- Hero del juego -->
+    <section class="box detalle-hero">
+      <div class="detalle-cover-wrap">
+        <img id="detalle-imagen" class="detalle-cover" src="" alt="" style="display:none" />
+        <div id="detalle-placeholder" class="detalle-cover-placeholder">🎮</div>
+      </div>
+
+      <div class="detalle-info">
+        <div class="detalle-header-row">
+          <h2 id="detalle-titulo" class="detalle-titulo"></h2>
+          <span id="detalle-estado" class="estado-badge"></span>
+        </div>
+
+        <div class="detalle-meta-grid">
+          <div class="detalle-meta-item">
+            <span class="meta-label">Año</span>
+            <span id="detalle-anio" class="meta-value"></span>
+          </div>
+          <div class="detalle-meta-item">
+            <span class="meta-label">Categoría</span>
+            <span id="detalle-categoria" class="meta-value"></span>
+          </div>
+          <div class="detalle-meta-item">
+            <span class="meta-label">Plataforma</span>
+            <span id="detalle-plataforma" class="meta-value"></span>
+          </div>
+          <div class="detalle-meta-item">
+            <span class="meta-label">Puntuación media</span>
+            <span id="detalle-promedio" class="meta-value promedio-valor"></span>
+          </div>
+        </div>
+
+        <p id="detalle-descripcion" class="detalle-descripcion"></p>
+
+        <div class="detalle-acciones">
+          <button class="btn" id="detalle-btn-editar">✏ Editar juego</button>
+          <button class="btn btn-danger" id="detalle-btn-eliminar">🗑 Eliminar juego</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Reseñas -->
+    <section class="box">
+      <div class="top-row">
+        <h2>Reseñas</h2>
+        <button class="btn" id="btn-abrir-modal-resena">+ Agregar reseña</button>
+      </div>
+      <div id="resenas-lista"></div>
+      <p id="resenas-empty" class="empty-msg" style="display:none">Todavía no hay reseñas para este juego.</p>
+    </section>
+
+  </div><!-- /vista-detalle -->
+
+  <!-- ═══════════════ VISTA: WISHLIST ═══════════════ -->
+  <div id="vista-wishlist" style="display:none">
+
+    <section class="box">
+      <div class="top-row">
+        <h2>Lista de deseos <span id="wishlist-count" class="results-count"></span></h2>
+        <div class="tools">
+          <select id="wl-filter-prioridad">
+            <option value="">Todas las prioridades</option>
+            <option value="ALTA">Alta</option>
+            <option value="MEDIA">Media</option>
+            <option value="BAJA">Baja</option>
+          </select>
+          <button class="btn" id="btn-abrir-modal-wishlist">+ Agregar a wishlist</button>
+        </div>
+      </div>
+
+      <div id="wishlist-list" class="wishlist-grid"></div>
+      <p id="wishlist-empty" class="empty-msg" style="display:none">Tu lista de deseos está vacía.</p>
+    </section>
+
+  </div><!-- /vista-wishlist -->
+
+</div><!-- /container -->
+
+<!-- ═══════════════ MODAL: NUEVA WISHLIST ═══════════════ -->
+<div id="modal-wishlist" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3>Agregar a Wishlist</h3>
+
+    <form id="form-wishlist" novalidate>
+      <div class="modal-field">
+        <label>Título <span class="req">*</span></label>
+        <input type="text" id="wl-titulo" placeholder="Ej: Elden Ring" />
+        <span class="field-error" id="wl-error-titulo"></span>
+      </div>
+
+      <div class="modal-field">
+        <label>Plataforma</label>
+        <select id="wl-plataformaId"></select>
+      </div>
+
+      <div class="modal-field">
+        <label>Categoría</label>
+        <select id="wl-categoriaId"></select>
+      </div>
+
+      <div class="modal-field">
+        <label>Prioridad</label>
+        <div class="prioridad-radios">
+          <label class="radio-label prioridad-alta">
+            <input type="radio" name="wl-prioridad" value="ALTA" /> Alta
+          </label>
+          <label class="radio-label prioridad-media">
+            <input type="radio" name="wl-prioridad" value="MEDIA" checked /> Media
+          </label>
+          <label class="radio-label prioridad-baja">
+            <input type="radio" name="wl-prioridad" value="BAJA" /> Baja
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-field">
+        <label>Notas</label>
+        <textarea id="wl-notas" rows="2" placeholder="Por qué quieres este juego..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="submit" class="btn">Guardar</button>
+        <button type="button" class="btn btn-gray" id="btn-cerrar-modal-wl">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════ MODAL: NUEVA RESEÑA ═══════════════ -->
+<div id="modal-resena" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <h3>Nueva reseña</h3>
+
+    <form id="form-resena">
+      <div class="modal-field">
+        <label>Autor *</label>
+        <input type="text" id="resena-autor" placeholder="Tu nombre" required />
+      </div>
+
+      <div class="modal-field">
+        <label>Puntuación: <strong id="puntuacion-display">5</strong> / 10</label>
+        <input type="range" id="resena-puntuacion" min="1" max="10" value="5" />
+        <div class="range-labels"><span>1</span><span>10</span></div>
+      </div>
+
+      <div class="modal-field">
+        <label>Comentario</label>
+        <textarea id="resena-comentario" rows="3" placeholder="Tu opinión sobre el juego..."></textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="submit" class="btn">Guardar reseña</button>
+        <button type="button" class="btn btn-gray" id="btn-cerrar-modal">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+com/gamelist/gamelist_api/repository/VideojuegoRepository.class
+com/gamelist/gamelist_api/GamelistApiApplication.class
+com/gamelist/gamelist_api/model/Videojuego.class
+com/gamelist/gamelist_api/service/CategoriaService.class
+com/gamelist/gamelist_api/controller/VideojuegoController.class
+com/gamelist/gamelist_api/model/Categoria.class
+com/gamelist/gamelist_api/service/VideojuegoService.class
+com/gamelist/gamelist_api/controller/CategoriaController.class
+com/gamelist/gamelist_api/repository/CategoriaRepository.class

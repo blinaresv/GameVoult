@@ -1,0 +1,41 @@
+steps:
+  # 1. Construir imagen Docker unificada (backend + frontend)
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/game-list-cloud-493923/cloud-run-source-deploy/gamevoult:$COMMIT_SHA'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/game-list-cloud-493923/cloud-run-source-deploy/gamevoult:latest'
+      - '.'
+
+  # 2. Push al Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'us-central1-docker.pkg.dev/game-list-cloud-493923/cloud-run-source-deploy/gamevoult'
+
+  # 3. Deploy a Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'services'
+      - 'update'
+      - 'gamevoult'
+      - '--image=us-central1-docker.pkg.dev/game-list-cloud-493923/cloud-run-source-deploy/gamevoult:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--add-cloudsql-instances=game-list-cloud-493923:us-central1:free-trial-first-project'
+      - '--set-env-vars=DB_NAME=gamelist,DB_USER=$_DB_USER,DB_PASSWORD=$_DB_PASSWORD,INSTANCE_CONNECTION_NAME=game-list-cloud-493923:us-central1:free-trial-first-project'
+      - '--quiet'
+
+substitutions:
+  _DB_USER: postgres
+  _DB_PASSWORD: changeme
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - 'us-central1-docker.pkg.dev/game-list-cloud-493923/cloud-run-source-deploy/gamevoult'

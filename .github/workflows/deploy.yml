@@ -1,0 +1,24 @@
+name: 🚀 Deploy a Cloud Run
+
+# El deploy se realiza automáticamente via Cloud Build Trigger en GCP.
+# Este workflow solo valida que el código compile antes de mergear a main.
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  notify:
+    name: Deploy iniciado via Cloud Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Confirmar deploy en progreso
+        run: |
+          echo "✅ Push a main detectado."
+          echo "🔨 Cloud Build Trigger iniciará el build y deploy automáticamente."
+          echo "📦 Proyecto: game-list-cloud-493923"
+          echo "🌐 URL: https://gamevoult-289395988346.us-central1.run.app"

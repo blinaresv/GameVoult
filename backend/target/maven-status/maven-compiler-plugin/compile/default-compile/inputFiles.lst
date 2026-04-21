@@ -1,0 +1,9 @@
+/Users/bflinaresv/Documents/Proyect/Game_list_cloud/backend/src/main/java/com/gamelist/gamelist_api/GamelistApiApplication.java
+/Users/bflinaresv/Documents/Proyect/Game_list_cloud/backend/src/main/java/com/gamelist/gamelist_api/controller/CategoriaController.java
+/Users/bflinaresv/Documents/Proyect/Game_list_cloud/backend/src/main/java/com/gamelist/gamelist_api/controller/VideojuegoController.java
+/Users/bflinaresv/Documents/Proyect/Game_list_cloud/backend/src/main/java/com/gamelist/gamelist_api/model/Categoria.java
+/Users/bflinaresv/Documents/Proyect/Game_list_cloud/backend/src/main/java/com/gamelist/gamelist_api/model/Videojuego.java
+/Users/bflinaresv/Documents/Proyect/Game_list_cloud/backend/src/main/java/com/gamelist/gamelist_api/repository/CategoriaRepository.java
+/Users/bflinaresv/Documents/Proyect/Game_list_cloud/backend/src/main/java/com/gamelist/gamelist_api/repository/VideojuegoRepository.java
+/Users/bflinaresv/Documents/Proyect/Game_list_cloud/backend/src/main/java/com/gamelist/gamelist_api/service/CategoriaService.java
+/Users/bflinaresv/Documents/Proyect/Game_list_cloud/backend/src/main/java/com/gamelist/gamelist_api/service/VideojuegoService.java
