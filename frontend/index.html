@@ -1,337 +1,675 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GameVault — Biblioteca de Videojuegos</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
+// En Docker/Cloud Run el frontend y la API comparten origen → URL relativa.
+// En local con Live Server (puerto ≠ 8080) → URL absoluta al backend de desarrollo.
+const API_URL = (window.location.hostname === 'localhost' && window.location.port !== '8080')
+  ? 'http://localhost:8080/api'
+  : '/api';
 
-<div class="container">
+let videojuegos    = [];
+let categorias     = [];
+let plataformas    = [];
+let wishlistItems  = [];
+let editandoId     = null;
+let detalleJuegoId = null;
 
-  <header class="header">
-    <h1>🎮 GameVault</h1>
-    <p>Tu biblioteca personal de videojuegos</p>
-  </header>
+// ── Biblioteca ──
+const form             = document.getElementById("game-form");
+const formSection      = document.getElementById("form-section");
+const gamesList        = document.getElementById("games-list");
+const emptyMsg         = document.getElementById("empty-msg");
+const categoriaSelect  = document.getElementById("categoriaId");
+const plataformaSelect = document.getElementById("plataformaId");
+const searchInput      = document.getElementById("search-input");
+const filterEstado     = document.getElementById("filter-estado");
+const filterCat        = document.getElementById("filter-category");
+const clearSearchBtn   = document.getElementById("clear-search");
+const clearFiltersBtn  = document.getElementById("clear-filters-btn");
+const resultsCount     = document.getElementById("results-count");
 
-  <!-- ═══════════════ NAVEGACIÓN ═══════════════ -->
-  <nav class="nav-tabs">
-    <button class="nav-tab active" id="tab-biblioteca" data-vista="biblioteca">🎮 Biblioteca</button>
-    <button class="nav-tab" id="tab-wishlist"  data-vista="wishlist">⭐ Wishlist</button>
-  </nav>
+// ── Vistas ──
+const vistaBiblioteca = document.getElementById("vista-biblioteca");
+const vistaDetalle    = document.getElementById("vista-detalle");
+const vistaWishlist   = document.getElementById("vista-wishlist");
 
-  <!-- ═══════════════ VISTA: BIBLIOTECA ═══════════════ -->
-  <div id="vista-biblioteca">
+// ── Detalle ──
+const detalleImagen      = document.getElementById("detalle-imagen");
+const detallePlaceholder = document.getElementById("detalle-placeholder");
 
-    <!-- ESTADÍSTICAS -->
-    <div id="stats-bar" class="stats-bar">
-      <button class="stat-pill stat-total active" data-estado="" id="stat-TOTAL">
-        <span class="stat-label">Total</span>
-        <span class="stat-num" id="num-TOTAL">—</span>
-      </button>
-      <button class="stat-pill stat-pendiente" data-estado="PENDIENTE" id="stat-PENDIENTE">
-        <span class="stat-label">Pendiente</span>
-        <span class="stat-num" id="num-PENDIENTE">—</span>
-      </button>
-      <button class="stat-pill stat-jugando" data-estado="JUGANDO" id="stat-JUGANDO">
-        <span class="stat-label">Jugando</span>
-        <span class="stat-num" id="num-JUGANDO">—</span>
-      </button>
-      <button class="stat-pill stat-terminado" data-estado="TERMINADO" id="stat-TERMINADO">
-        <span class="stat-label">Terminado</span>
-        <span class="stat-num" id="num-TERMINADO">—</span>
-      </button>
-      <button class="stat-pill stat-favorito" data-estado="FAVORITO" id="stat-FAVORITO">
-        <span class="stat-label">Favorito</span>
-        <span class="stat-num" id="num-FAVORITO">—</span>
-      </button>
-    </div>
+// ── Modal reseña ──
+const modalResena       = document.getElementById("modal-resena");
+const formResena        = document.getElementById("form-resena");
+const puntuacionSlider  = document.getElementById("resena-puntuacion");
+const puntuacionDisplay = document.getElementById("puntuacion-display");
 
-    <!-- BOTÓN ABRIR FORMULARIO -->
-    <div class="form-toggle-bar">
-      <button class="btn" id="btn-abrir-formulario">+ Agregar videojuego</button>
-    </div>
+// ── Preview imagen en formulario ──
+const imagenUrlInput           = document.getElementById("imagenUrl");
+const imagenPreview            = document.getElementById("imagen-preview");
+const imagenPreviewPlaceholder = document.getElementById("imagen-preview-placeholder");
 
-    <!-- FORMULARIO (colapsado por defecto) -->
-    <section class="box form-section" id="form-section" style="display:none">
-      <div class="form-section-header">
-        <h2 id="form-title">Agregar videojuego</h2>
-        <span id="form-mode-badge" class="form-mode-badge" style="display:none">Modo edición</span>
-      </div>
+// ── Modal wishlist ──
+const modalWishlist  = document.getElementById("modal-wishlist");
+const formWishlist   = document.getElementById("form-wishlist");
 
-      <form id="game-form" novalidate>
-        <input type="hidden" id="game-id" />
+// ════════════════════════════════════════════════════════
+//  INICIALIZACIÓN
+// ════════════════════════════════════════════════════════
 
-        <div class="grid">
+document.addEventListener("DOMContentLoaded", async () => {
+  await Promise.all([cargarCategorias(), cargarPlataformas()]);
+  await cargarVideojuegos();
+  await cargarEstadisticas();
 
-          <!-- Columna izquierda: campos + preview de imagen -->
-          <div class="form-col-main">
-            <div class="field-group">
-              <label>Título <span class="req">*</span></label>
-              <input type="text" id="titulo" placeholder="Ej: The Witcher 3" />
-              <span class="field-error" id="error-titulo"></span>
-            </div>
+  // Navegación por tabs
+  document.querySelectorAll(".nav-tab").forEach(tab => {
+    tab.addEventListener("click", () => cambiarVistaPrincipal(tab.dataset.vista));
+  });
 
-            <div class="field-group">
-              <label>Año <span class="req">*</span></label>
-              <input type="number" id="anio" placeholder="Ej: 2015" min="1970" max="2100" />
-              <span class="field-error" id="error-anio"></span>
-            </div>
+  // Pills de estadísticas — filtran la biblioteca al hacer clic
+  document.querySelectorAll(".stat-pill").forEach(pill => {
+    pill.addEventListener("click", () => {
+      document.querySelectorAll(".stat-pill").forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      filterEstado.value = pill.dataset.estado;
+      renderizar();
+    });
+  });
 
-            <div class="field-group">
-              <label>Categoría</label>
-              <select id="categoriaId"></select>
-            </div>
+  // Formulario toggle
+  document.getElementById("btn-abrir-formulario").addEventListener("click", abrirFormulario);
+  document.getElementById("reload-btn").addEventListener("click", cargarVideojuegos);
+  document.getElementById("cancel-btn").addEventListener("click", () => {
+    if (editandoId && !confirm("¿Descartar los cambios de edición?")) return;
+    resetForm();
+  });
 
-            <div class="field-group">
-              <label>Plataforma</label>
-              <select id="plataformaId"></select>
-            </div>
+  // Preview de imagen en tiempo real
+  imagenUrlInput.addEventListener("input", actualizarPreviewImagen);
 
-            <div class="field-group">
-              <label>Descripción</label>
-              <textarea id="descripcion" rows="3" placeholder="Breve descripción del juego..."></textarea>
-            </div>
-          </div>
+  searchInput.addEventListener("input", () => {
+    clearSearchBtn.style.display = searchInput.value ? "block" : "none";
+    renderizar();
+  });
+  clearSearchBtn.addEventListener("click", () => {
+    searchInput.value = "";
+    clearSearchBtn.style.display = "none";
+    renderizar();
+  });
+  filterEstado.addEventListener("change", () => {
+    sincronizarPillActiva(filterEstado.value);
+    renderizar();
+  });
+  filterCat.addEventListener("change", renderizar);
+  clearFiltersBtn.addEventListener("click", limpiarFiltros);
 
-          <!-- Columna derecha: imagen -->
-          <div class="form-col-imagen">
-            <div class="field-group">
-              <label>URL de imagen de portada</label>
-              <input type="url" id="imagenUrl" placeholder="https://..." />
-            </div>
-            <div class="imagen-preview-wrap">
-              <img id="imagen-preview" class="imagen-preview" src="" alt="Preview" style="display:none" />
-              <div id="imagen-preview-placeholder" class="imagen-preview-placeholder">🎮</div>
-            </div>
-          </div>
+  // Detalle
+  document.getElementById("btn-volver").addEventListener("click", mostrarBiblioteca);
+  document.getElementById("detalle-btn-editar").addEventListener("click", () => {
+    mostrarBiblioteca();
+    editar(detalleJuegoId);
+  });
+  document.getElementById("detalle-btn-eliminar").addEventListener("click", async () => {
+    if (!confirm("¿Eliminar este juego?")) return;
+    await fetch(`${API_URL}/videojuegos/${detalleJuegoId}`, { method: "DELETE" });
+    mostrarBiblioteca();
+    await cargarVideojuegos();
+  });
 
-          <!-- Estado: fila completa -->
-          <div class="full">
-            <label>Estado <span class="req">*</span></label>
-            <div class="estado-radios">
-              <label class="radio-label pendiente-label">
-                <input type="radio" name="estado" value="PENDIENTE" checked /> Pendiente
-              </label>
-              <label class="radio-label jugando-label">
-                <input type="radio" name="estado" value="JUGANDO" /> Jugando
-              </label>
-              <label class="radio-label terminado-label">
-                <input type="radio" name="estado" value="TERMINADO" /> Terminado
-              </label>
-              <label class="radio-label favorito-label">
-                <input type="radio" name="estado" value="FAVORITO" /> Favorito
-              </label>
-            </div>
-          </div>
+  // Modal reseña
+  document.getElementById("btn-abrir-modal-resena").addEventListener("click", () => {
+    formResena.reset();
+    puntuacionDisplay.textContent = "5";
+    modalResena.style.display = "flex";
+  });
+  document.getElementById("btn-cerrar-modal").addEventListener("click", () => {
+    modalResena.style.display = "none";
+  });
+  modalResena.addEventListener("click", (e) => {
+    if (e.target === modalResena) modalResena.style.display = "none";
+  });
+  puntuacionSlider.addEventListener("input", () => {
+    puntuacionDisplay.textContent = puntuacionSlider.value;
+  });
+  formResena.addEventListener("submit", guardarResena);
+
+  // Modal wishlist
+  document.getElementById("btn-abrir-modal-wishlist").addEventListener("click", () => {
+    formWishlist.reset();
+    document.getElementById("wl-error-titulo").textContent = "";
+    document.querySelector('input[name="wl-prioridad"][value="MEDIA"]').checked = true;
+    modalWishlist.style.display = "flex";
+  });
+  document.getElementById("btn-cerrar-modal-wl").addEventListener("click", () => {
+    modalWishlist.style.display = "none";
+  });
+  modalWishlist.addEventListener("click", (e) => {
+    if (e.target === modalWishlist) modalWishlist.style.display = "none";
+  });
+  formWishlist.addEventListener("submit", guardarWishlistItem);
+
+  document.getElementById("wl-filter-prioridad").addEventListener("change", renderizarWishlist);
+
+  form.addEventListener("submit", guardarVideojuego);
+});
+
+// ════════════════════════════════════════════════════════
+//  NAVEGACIÓN
+// ════════════════════════════════════════════════════════
+
+function cambiarVistaPrincipal(vista) {
+  document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+  document.querySelector(`[data-vista="${vista}"]`).classList.add("active");
+
+  vistaBiblioteca.style.display = vista === "biblioteca" ? "block" : "none";
+  vistaDetalle.style.display    = "none";
+  vistaWishlist.style.display   = vista === "wishlist"   ? "block" : "none";
+
+  if (vista === "wishlist") cargarWishlist();
+}
+
+// ════════════════════════════════════════════════════════
+//  CARGA DE DATOS
+// ════════════════════════════════════════════════════════
+
+async function cargarCategorias() {
+  const res = await fetch(`${API_URL}/categorias`);
+  categorias = await res.json();
+
+  const wlCatSelect = document.getElementById("wl-categoriaId");
+  categoriaSelect.innerHTML = '<option value="">Sin categoría</option>';
+  filterCat.innerHTML       = '<option value="">Todas las categorías</option>';
+  wlCatSelect.innerHTML     = '<option value="">Sin categoría</option>';
+  categorias.forEach(c => {
+    const opt = `<option value="${c.id}">${c.nombre}</option>`;
+    categoriaSelect.innerHTML += opt;
+    filterCat.innerHTML       += opt;
+    wlCatSelect.innerHTML     += opt;
+  });
+}
+
+async function cargarPlataformas() {
+  const res = await fetch(`${API_URL}/plataformas`);
+  plataformas = await res.json();
+
+  const wlPlatSelect = document.getElementById("wl-plataformaId");
+  plataformaSelect.innerHTML = '<option value="">Sin plataforma</option>';
+  wlPlatSelect.innerHTML     = '<option value="">Sin plataforma</option>';
+  plataformas.forEach(p => {
+    const opt = `<option value="${p.id}">${p.nombre}</option>`;
+    plataformaSelect.innerHTML += opt;
+    wlPlatSelect.innerHTML     += opt;
+  });
+}
+
+async function cargarVideojuegos() {
+  const res = await fetch(`${API_URL}/videojuegos`);
+  if (!res.ok) {
+    gamesList.innerHTML = `<p style="color:#f87171;padding:20px;text-align:center">
+      Error al cargar los videojuegos (${res.status}). Intenta recargar la página.</p>`;
+    return;
+  }
+  videojuegos = await res.json();
+  renderizar();
+  await cargarEstadisticas();
+}
+
+async function cargarEstadisticas() {
+  const res = await fetch(`${API_URL}/videojuegos/estadisticas`);
+  if (!res.ok) return;
+  const stats = await res.json();
+
+  const claves = ["TOTAL", "PENDIENTE", "JUGANDO", "TERMINADO", "FAVORITO"];
+  claves.forEach(k => {
+    const el = document.getElementById(`num-${k}`);
+    if (el) el.textContent = stats[k] ?? 0;
+  });
+}
+
+// ════════════════════════════════════════════════════════
+//  RENDERIZADO BIBLIOTECA
+// ════════════════════════════════════════════════════════
+
+function renderizar() {
+  const q      = searchInput.value.toLowerCase().trim();
+  const estado = filterEstado.value;
+  const catId  = filterCat.value;
+  const hayFiltros = q || estado || catId;
+
+  const lista = videojuegos.filter(j => {
+    const matchTitulo = !q     || j.titulo.toLowerCase().includes(q);
+    const matchEstado = !estado || j.estado === estado;
+    const matchCat    = !catId  || String(j.categoria?.id) === catId;
+    return matchTitulo && matchEstado && matchCat;
+  });
+
+  resultsCount.textContent = hayFiltros
+    ? `(${lista.length} de ${videojuegos.length})`
+    : `(${videojuegos.length})`;
+
+  clearFiltersBtn.style.display = hayFiltros ? "inline-block" : "none";
+
+  gamesList.innerHTML = "";
+
+  if (lista.length === 0) {
+    if (videojuegos.length === 0) {
+      gamesList.innerHTML = `
+        <div style="text-align:center;padding:48px 20px;color:var(--text2)">
+          <div style="font-size:3rem;margin-bottom:16px">🎮</div>
+          <p style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:8px">Tu biblioteca está vacía</p>
+          <p style="font-size:14px;margin-bottom:20px">Agrega tu primer videojuego con el botón de arriba.</p>
+        </div>`;
+    } else {
+      emptyMsg.style.display = "block";
+    }
+    return;
+  }
+
+  emptyMsg.style.display = "none";
+
+  lista.forEach(j => {
+    const card = document.createElement("div");
+    card.className = "game-card";
+
+    const portada = j.imagenUrl
+      ? `<img class="card-cover" src="${j.imagenUrl}" alt="${j.titulo}"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+         <div class="card-cover-placeholder" style="display:none">🎮</div>`
+      : `<div class="card-cover-placeholder">🎮</div>`;
+
+    card.innerHTML = `
+      ${portada}
+      <div class="card-body">
+        <div class="card-title" title="${j.titulo}">${j.titulo}</div>
+        <div class="card-meta">${j.plataforma?.nombre || '—'} · ${j.anio || ''}</div>
+        <div class="card-meta">${j.categoria?.nombre || '—'}</div>
+        <span class="estado-badge estado-${j.estado}">${estadoLabel(j.estado)}</span>
+        <div class="card-actions">
+          <button class="edit-btn"   onclick="event.stopPropagation();editar(${j.id})">✏ Editar</button>
+          <button class="delete-btn" onclick="event.stopPropagation();eliminar(${j.id})">🗑 Eliminar</button>
         </div>
+      </div>`;
 
-        <div class="buttons">
-          <button type="submit" class="btn" id="btn-submit-form">Guardar</button>
-          <button type="button" class="btn btn-gray" id="cancel-btn">Cancelar</button>
-        </div>
-      </form>
+    card.addEventListener("click", () => verDetalle(j.id));
+    gamesList.appendChild(card);
+  });
+}
 
-      <p id="message" class="msg-form"></p>
-    </section>
+function estadoLabel(estado) {
+  const labels = { PENDIENTE: "Pendiente", JUGANDO: "Jugando", TERMINADO: "Terminado", FAVORITO: "Favorito" };
+  return labels[estado] || estado;
+}
 
-    <!-- BIBLIOTECA -->
-    <section class="box">
-      <div class="top-row">
-        <h2>Videojuegos registrados <span id="results-count" class="results-count"></span></h2>
-        <div class="tools">
-          <div class="search-wrapper">
-            <input type="text" id="search-input" placeholder="Buscar por título..." />
-            <button type="button" id="clear-search" class="clear-btn" title="Limpiar búsqueda" style="display:none">✕</button>
-          </div>
-          <select id="filter-estado">
-            <option value="">Todos los estados</option>
-            <option value="PENDIENTE">Pendiente</option>
-            <option value="JUGANDO">Jugando</option>
-            <option value="TERMINADO">Terminado</option>
-            <option value="FAVORITO">Favorito</option>
-          </select>
-          <select id="filter-category">
-            <option value="">Todas las categorías</option>
-          </select>
-          <button class="btn btn-outline" id="clear-filters-btn">✕ Limpiar</button>
-          <button class="btn btn-gray" id="reload-btn">↺ Recargar</button>
-        </div>
+// ════════════════════════════════════════════════════════
+//  VISTA DETALLE
+// ════════════════════════════════════════════════════════
+
+async function verDetalle(id) {
+  detalleJuegoId = id;
+  const j = videojuegos.find(v => v.id === id);
+  if (!j) return;
+
+  // Imagen o placeholder
+  if (j.imagenUrl) {
+    detalleImagen.src = j.imagenUrl;
+    detalleImagen.alt = j.titulo;
+    detalleImagen.style.display = "block";
+    detallePlaceholder.style.display = "none";
+    detalleImagen.onerror = () => {
+      detalleImagen.style.display = "none";
+      detallePlaceholder.style.display = "flex";
+    };
+  } else {
+    detalleImagen.style.display = "none";
+    detallePlaceholder.style.display = "flex";
+  }
+
+  document.getElementById("detalle-titulo").textContent    = j.titulo;
+  document.getElementById("detalle-anio").textContent      = j.anio || "—";
+  document.getElementById("detalle-categoria").textContent = j.categoria?.nombre  || "—";
+  document.getElementById("detalle-plataforma").textContent= j.plataforma?.nombre || "—";
+  document.getElementById("detalle-descripcion").textContent = j.descripcion || "";
+
+  const badge = document.getElementById("detalle-estado");
+  badge.textContent  = estadoLabel(j.estado);
+  badge.className    = `estado-badge estado-${j.estado}`;
+
+  vistaBiblioteca.style.display = "none";
+  vistaDetalle.style.display    = "block";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
+  await cargarResenas(id);
+}
+
+function mostrarBiblioteca() {
+  vistaDetalle.style.display    = "none";
+  vistaBiblioteca.style.display = "block";
+  detalleJuegoId = null;
+}
+
+// ════════════════════════════════════════════════════════
+//  RESEÑAS
+// ════════════════════════════════════════════════════════
+
+async function cargarResenas(videojuegoId) {
+  const lista    = document.getElementById("resenas-lista");
+  const emptyRes = document.getElementById("resenas-empty");
+  lista.innerHTML = '<p style="color:#64748b;font-size:13px">Cargando reseñas...</p>';
+
+  const res    = await fetch(`${API_URL}/resenas/videojuego/${videojuegoId}`);
+  const resenas = await res.json();
+
+  lista.innerHTML = "";
+
+  if (resenas.length === 0) {
+    emptyRes.style.display = "block";
+    document.getElementById("detalle-promedio").textContent = "—";
+    return;
+  }
+
+  emptyRes.style.display = "none";
+
+  const promedio = (resenas.reduce((s, r) => s + r.puntuacion, 0) / resenas.length).toFixed(1);
+  document.getElementById("detalle-promedio").textContent = `${promedio} ★`;
+
+  resenas.forEach(r => {
+    const div = document.createElement("div");
+    div.className = "resena-card";
+    div.innerHTML = `
+      <div class="resena-score">${r.puntuacion}</div>
+      <div class="resena-body">
+        <div class="resena-autor">${r.autor || "Anónimo"}</div>
+        <div class="resena-comentario">${r.comentario || ""}</div>
       </div>
+      <button class="resena-delete" title="Eliminar reseña" onclick="eliminarResena(${r.id})">🗑</button>`;
+    lista.appendChild(div);
+  });
+}
 
-      <div id="games-list" class="games-list"></div>
-      <p id="empty-msg" class="empty-msg" style="display:none">No se encontraron juegos para los filtros aplicados.</p>
-    </section>
+async function guardarResena(e) {
+  e.preventDefault();
+  const data = {
+    autor:        document.getElementById("resena-autor").value.trim(),
+    puntuacion:   Number(puntuacionSlider.value),
+    comentario:   document.getElementById("resena-comentario").value.trim() || null,
+    videojuegoId: detalleJuegoId,
+  };
 
-  </div><!-- /vista-biblioteca -->
+  const res = await fetch(`${API_URL}/resenas`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
 
-  <!-- ═══════════════ VISTA: DETALLE ═══════════════ -->
-  <div id="vista-detalle" style="display:none">
+  if (res.ok) {
+    modalResena.style.display = "none";
+    await cargarResenas(detalleJuegoId);
+  }
+}
 
-    <button class="btn btn-gray btn-back" id="btn-volver">← Volver a la biblioteca</button>
+async function eliminarResena(id) {
+  if (!confirm("¿Eliminar esta reseña?")) return;
+  await fetch(`${API_URL}/resenas/${id}`, { method: "DELETE" });
+  await cargarResenas(detalleJuegoId);
+}
 
-    <!-- Hero del juego -->
-    <section class="box detalle-hero">
-      <div class="detalle-cover-wrap">
-        <img id="detalle-imagen" class="detalle-cover" src="" alt="" style="display:none" />
-        <div id="detalle-placeholder" class="detalle-cover-placeholder">🎮</div>
+// ════════════════════════════════════════════════════════
+//  CRUD VIDEOJUEGO (formulario)
+// ════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════
+//  FORMULARIO: ABRIR / CERRAR / VALIDAR
+// ════════════════════════════════════════════════════════
+
+function abrirFormulario() {
+  formSection.style.display = "block";
+  document.getElementById("btn-abrir-formulario").style.display = "none";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function cerrarFormulario() {
+  formSection.style.display = "none";
+  document.getElementById("btn-abrir-formulario").style.display = "inline-block";
+}
+
+function actualizarPreviewImagen() {
+  const url = imagenUrlInput.value.trim();
+  if (url) {
+    imagenPreview.src = url;
+    imagenPreview.style.display = "block";
+    imagenPreviewPlaceholder.style.display = "none";
+    imagenPreview.onerror = () => {
+      imagenPreview.style.display = "none";
+      imagenPreviewPlaceholder.style.display = "flex";
+    };
+  } else {
+    imagenPreview.style.display = "none";
+    imagenPreviewPlaceholder.style.display = "flex";
+  }
+}
+
+function validarFormulario() {
+  let valido = true;
+
+  const titulo = document.getElementById("titulo").value.trim();
+  const anio   = document.getElementById("anio").value;
+  const errorTitulo = document.getElementById("error-titulo");
+  const errorAnio   = document.getElementById("error-anio");
+  const grupoTitulo = document.getElementById("titulo").closest(".field-group");
+  const grupoAnio   = document.getElementById("anio").closest(".field-group");
+
+  if (!titulo) {
+    errorTitulo.textContent = "El título es obligatorio.";
+    grupoTitulo.classList.add("has-error");
+    valido = false;
+  } else {
+    errorTitulo.textContent = "";
+    grupoTitulo.classList.remove("has-error");
+  }
+
+  if (!anio) {
+    errorAnio.textContent = "El año es obligatorio.";
+    grupoAnio.classList.add("has-error");
+    valido = false;
+  } else if (Number(anio) < 1970 || Number(anio) > 2100) {
+    errorAnio.textContent = "El año debe estar entre 1970 y 2100.";
+    grupoAnio.classList.add("has-error");
+    valido = false;
+  } else {
+    errorAnio.textContent = "";
+    grupoAnio.classList.remove("has-error");
+  }
+
+  return valido;
+}
+
+async function guardarVideojuego(e) {
+  e.preventDefault();
+  if (!validarFormulario()) return;
+
+  const estadoRadio = document.querySelector('input[name="estado"]:checked');
+  const catId       = categoriaSelect.value;
+  const platId      = plataformaSelect.value;
+
+  const data = {
+    titulo:      document.getElementById("titulo").value.trim(),
+    anio:        Number(document.getElementById("anio").value),
+    descripcion: document.getElementById("descripcion").value.trim() || null,
+    imagenUrl:   imagenUrlInput.value.trim() || null,
+    estado:      estadoRadio?.value || "PENDIENTE",
+    categoria:   catId  ? { id: Number(catId)  } : null,
+    plataforma:  platId ? { id: Number(platId) } : null,
+  };
+
+  const url    = editandoId ? `${API_URL}/videojuegos/${editandoId}` : `${API_URL}/videojuegos`;
+  const method = editandoId ? "PUT" : "POST";
+
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  const msg = document.getElementById("message");
+  if (res.ok) {
+    msg.style.color = "#4ade80";
+    msg.textContent = editandoId ? "Juego actualizado." : "Juego agregado.";
+    resetForm();
+    await cargarVideojuegos();
+    setTimeout(() => { msg.textContent = ""; }, 3000);
+  } else {
+    msg.style.color = "#f87171";
+    msg.textContent = "Error al guardar. Verifica los campos e inténtalo de nuevo.";
+  }
+}
+
+function editar(id) {
+  const j = videojuegos.find(v => v.id === id);
+  if (!j) return;
+
+  document.getElementById("form-title").textContent    = "Editar videojuego";
+  document.getElementById("titulo").value              = j.titulo;
+  document.getElementById("anio").value                = j.anio   || "";
+  document.getElementById("descripcion").value         = j.descripcion || "";
+  imagenUrlInput.value                                 = j.imagenUrl   || "";
+  categoriaSelect.value  = j.categoria?.id  || "";
+  plataformaSelect.value = j.plataforma?.id || "";
+
+  const radio = document.querySelector(`input[name="estado"][value="${j.estado}"]`);
+  if (radio) radio.checked = true;
+
+  // Modo edición visual
+  formSection.classList.add("editing");
+  document.getElementById("form-mode-badge").style.display = "inline-block";
+  document.getElementById("btn-submit-form").textContent = "Guardar cambios";
+
+  actualizarPreviewImagen();
+
+  editandoId = id;
+  abrirFormulario();
+}
+
+async function eliminar(id) {
+  if (!confirm("¿Eliminar este juego?")) return;
+  await fetch(`${API_URL}/videojuegos/${id}`, { method: "DELETE" });
+  await cargarVideojuegos();
+}
+
+function resetForm() {
+  form.reset();
+  document.getElementById("form-title").textContent          = "Agregar videojuego";
+  document.getElementById("btn-submit-form").textContent     = "Guardar";
+  document.getElementById("form-mode-badge").style.display   = "none";
+  document.getElementById("error-titulo").textContent        = "";
+  document.getElementById("error-anio").textContent          = "";
+  document.getElementById("titulo").closest(".field-group").classList.remove("has-error");
+  document.getElementById("anio").closest(".field-group").classList.remove("has-error");
+  document.querySelector('input[name="estado"][value="PENDIENTE"]').checked = true;
+  formSection.classList.remove("editing");
+  imagenPreview.style.display = "none";
+  imagenPreviewPlaceholder.style.display = "flex";
+  editandoId = null;
+  cerrarFormulario();
+}
+
+function limpiarFiltros() {
+  searchInput.value  = "";
+  filterEstado.value = "";
+  filterCat.value    = "";
+  clearSearchBtn.style.display = "none";
+  sincronizarPillActiva("");
+  renderizar();
+}
+
+function sincronizarPillActiva(estado) {
+  document.querySelectorAll(".stat-pill").forEach(p => {
+    p.classList.toggle("active", p.dataset.estado === estado);
+  });
+}
+
+// ════════════════════════════════════════════════════════
+//  WISHLIST
+// ════════════════════════════════════════════════════════
+
+async function cargarWishlist() {
+  const res = await fetch(`${API_URL}/wishlist`);
+  wishlistItems = await res.json();
+  renderizarWishlist();
+}
+
+function renderizarWishlist() {
+  const filtroPrioridad = document.getElementById("wl-filter-prioridad").value;
+  const lista = filtroPrioridad
+    ? wishlistItems.filter(w => w.prioridad === filtroPrioridad)
+    : wishlistItems;
+
+  const grid  = document.getElementById("wishlist-list");
+  const empty = document.getElementById("wishlist-empty");
+  const count = document.getElementById("wishlist-count");
+
+  count.textContent = filtroPrioridad
+    ? `(${lista.length} de ${wishlistItems.length})`
+    : `(${wishlistItems.length})`;
+
+  grid.innerHTML = "";
+  empty.style.display = lista.length === 0 ? "block" : "none";
+
+  lista.forEach(w => {
+    const div = document.createElement("div");
+    div.className = `wl-card prioridad-${w.prioridad}`;
+
+    const plat = w.plataforma?.nombre || w.plataformaNombre || "—";
+    const cat  = w.categoria?.nombre  || w.categoriaNombre  || "—";
+    const prioLabel = { ALTA: "Alta", MEDIA: "Media", BAJA: "Baja" };
+
+    div.innerHTML = `
+      <div class="wl-card-header">
+        <div class="wl-titulo">${w.titulo}</div>
+        <button class="wl-delete" title="Eliminar" onclick="eliminarWishlistItem(${w.id})">🗑</button>
       </div>
+      <span class="wl-badge prioridad-badge-${w.prioridad}">${prioLabel[w.prioridad] || w.prioridad}</span>
+      <div class="wl-meta">${plat} · ${cat}</div>
+      ${w.notas ? `<div class="wl-notas">"${w.notas}"</div>` : ""}
+    `;
+    grid.appendChild(div);
+  });
+}
 
-      <div class="detalle-info">
-        <div class="detalle-header-row">
-          <h2 id="detalle-titulo" class="detalle-titulo"></h2>
-          <span id="detalle-estado" class="estado-badge"></span>
-        </div>
+async function guardarWishlistItem(e) {
+  e.preventDefault();
 
-        <div class="detalle-meta-grid">
-          <div class="detalle-meta-item">
-            <span class="meta-label">Año</span>
-            <span id="detalle-anio" class="meta-value"></span>
-          </div>
-          <div class="detalle-meta-item">
-            <span class="meta-label">Categoría</span>
-            <span id="detalle-categoria" class="meta-value"></span>
-          </div>
-          <div class="detalle-meta-item">
-            <span class="meta-label">Plataforma</span>
-            <span id="detalle-plataforma" class="meta-value"></span>
-          </div>
-          <div class="detalle-meta-item">
-            <span class="meta-label">Puntuación media</span>
-            <span id="detalle-promedio" class="meta-value promedio-valor"></span>
-          </div>
-        </div>
+  const titulo = document.getElementById("wl-titulo").value.trim();
+  const errorEl = document.getElementById("wl-error-titulo");
 
-        <p id="detalle-descripcion" class="detalle-descripcion"></p>
+  if (!titulo) {
+    errorEl.textContent = "El título es obligatorio.";
+    return;
+  }
+  errorEl.textContent = "";
 
-        <div class="detalle-acciones">
-          <button class="btn" id="detalle-btn-editar">✏ Editar juego</button>
-          <button class="btn btn-danger" id="detalle-btn-eliminar">🗑 Eliminar juego</button>
-        </div>
-      </div>
-    </section>
+  const prioridad = document.querySelector('input[name="wl-prioridad"]:checked')?.value || "MEDIA";
+  const catId     = document.getElementById("wl-categoriaId").value;
+  const platId    = document.getElementById("wl-plataformaId").value;
 
-    <!-- Reseñas -->
-    <section class="box">
-      <div class="top-row">
-        <h2>Reseñas</h2>
-        <button class="btn" id="btn-abrir-modal-resena">+ Agregar reseña</button>
-      </div>
-      <div id="resenas-lista"></div>
-      <p id="resenas-empty" class="empty-msg" style="display:none">Todavía no hay reseñas para este juego.</p>
-    </section>
+  const data = {
+    titulo,
+    prioridad,
+    notas:     document.getElementById("wl-notas").value.trim() || null,
+    categoria: catId  ? { id: Number(catId)  } : null,
+    plataforma: platId ? { id: Number(platId) } : null,
+  };
 
-  </div><!-- /vista-detalle -->
+  const res = await fetch(`${API_URL}/wishlist`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
 
-  <!-- ═══════════════ VISTA: WISHLIST ═══════════════ -->
-  <div id="vista-wishlist" style="display:none">
+  if (res.ok) {
+    modalWishlist.style.display = "none";
+    await cargarWishlist();
+  }
+}
 
-    <section class="box">
-      <div class="top-row">
-        <h2>Lista de deseos <span id="wishlist-count" class="results-count"></span></h2>
-        <div class="tools">
-          <select id="wl-filter-prioridad">
-            <option value="">Todas las prioridades</option>
-            <option value="ALTA">Alta</option>
-            <option value="MEDIA">Media</option>
-            <option value="BAJA">Baja</option>
-          </select>
-          <button class="btn" id="btn-abrir-modal-wishlist">+ Agregar a wishlist</button>
-        </div>
-      </div>
-
-      <div id="wishlist-list" class="wishlist-grid"></div>
-      <p id="wishlist-empty" class="empty-msg" style="display:none">Tu lista de deseos está vacía.</p>
-    </section>
-
-  </div><!-- /vista-wishlist -->
-
-</div><!-- /container -->
-
-<!-- ═══════════════ MODAL: NUEVA WISHLIST ═══════════════ -->
-<div id="modal-wishlist" class="modal-overlay" style="display:none">
-  <div class="modal-box">
-    <h3>Agregar a Wishlist</h3>
-
-    <form id="form-wishlist" novalidate>
-      <div class="modal-field">
-        <label>Título <span class="req">*</span></label>
-        <input type="text" id="wl-titulo" placeholder="Ej: Elden Ring" />
-        <span class="field-error" id="wl-error-titulo"></span>
-      </div>
-
-      <div class="modal-field">
-        <label>Plataforma</label>
-        <select id="wl-plataformaId"></select>
-      </div>
-
-      <div class="modal-field">
-        <label>Categoría</label>
-        <select id="wl-categoriaId"></select>
-      </div>
-
-      <div class="modal-field">
-        <label>Prioridad</label>
-        <div class="prioridad-radios">
-          <label class="radio-label prioridad-alta">
-            <input type="radio" name="wl-prioridad" value="ALTA" /> Alta
-          </label>
-          <label class="radio-label prioridad-media">
-            <input type="radio" name="wl-prioridad" value="MEDIA" checked /> Media
-          </label>
-          <label class="radio-label prioridad-baja">
-            <input type="radio" name="wl-prioridad" value="BAJA" /> Baja
-          </label>
-        </div>
-      </div>
-
-      <div class="modal-field">
-        <label>Notas</label>
-        <textarea id="wl-notas" rows="2" placeholder="Por qué quieres este juego..."></textarea>
-      </div>
-
-      <div class="modal-actions">
-        <button type="submit" class="btn">Guardar</button>
-        <button type="button" class="btn btn-gray" id="btn-cerrar-modal-wl">Cancelar</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- ═══════════════ MODAL: NUEVA RESEÑA ═══════════════ -->
-<div id="modal-resena" class="modal-overlay" style="display:none">
-  <div class="modal-box">
-    <h3>Nueva reseña</h3>
-
-    <form id="form-resena">
-      <div class="modal-field">
-        <label>Autor *</label>
-        <input type="text" id="resena-autor" placeholder="Tu nombre" required />
-      </div>
-
-      <div class="modal-field">
-        <label>Puntuación: <strong id="puntuacion-display">5</strong> / 10</label>
-        <input type="range" id="resena-puntuacion" min="1" max="10" value="5" />
-        <div class="range-labels"><span>1</span><span>10</span></div>
-      </div>
-
-      <div class="modal-field">
-        <label>Comentario</label>
-        <textarea id="resena-comentario" rows="3" placeholder="Tu opinión sobre el juego..."></textarea>
-      </div>
-
-      <div class="modal-actions">
-        <button type="submit" class="btn">Guardar reseña</button>
-        <button type="button" class="btn btn-gray" id="btn-cerrar-modal">Cancelar</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<script src="app.js"></script>
-</body>
-</html>
+async function eliminarWishlistItem(id) {
+  if (!confirm("¿Quitar este juego de la wishlist?")) return;
+  await fetch(`${API_URL}/wishlist/${id}`, { method: "DELETE" });
+  await cargarWishlist();
+}
