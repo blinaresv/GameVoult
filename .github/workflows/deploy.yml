@@ -8,7 +8,7 @@ on:
 # ─────────────────────────────────────────────────────────────
 # Secrets requeridos en Settings → Secrets → Actions:
 #   GCP_SA_KEY          → JSON de la cuenta de servicio de GCP
-#   GCP_PROJECT_ID      → ID del proyecto GCP (game-list-cloud)
+#   GCP_PROJECT_ID      → ID del proyecto GCP (game-list-cloud-493923)
 # ─────────────────────────────────────────────────────────────
 
 jobs:
