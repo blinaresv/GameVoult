@@ -25,7 +25,10 @@ public class WishlistController {
     public List<Wishlist> listar(
             @RequestParam(required = false) String titulo,
             @RequestParam(required = false) PrioridadWishlist prioridad) {
-        return repo.buscarConFiltros(titulo, prioridad);
+        return repo.findAll().stream()
+            .filter(w -> titulo == null || w.getTitulo().toLowerCase().contains(titulo.toLowerCase()))
+            .filter(w -> prioridad == null || w.getPrioridad() == prioridad)
+            .collect(java.util.stream.Collectors.toList());
     }
 
     @GetMapping("/{id}")
