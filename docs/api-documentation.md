@@ -1,26 +1,28 @@
 # Documentación de la API
 
-## Game List Cloud
+## GameVault — Game List Cloud
 
 ---
 
 # 1. Introducción
 
-La API de Game List Cloud es un servicio REST desarrollado con Spring Boot que permite gestionar videojuegos y categorías mediante operaciones CRUD.
+La API de GameVault es un servicio REST desarrollado con Spring Boot 3.2 (Java 21) que permite gestionar videojuegos, categorías, plataformas, reseñas y wishlist mediante operaciones CRUD.
 
-Está diseñada bajo una arquitectura cliente-servidor, donde el frontend consume los datos a través de peticiones HTTP en formato JSON. La API se conecta a una base de datos PostgreSQL en la nube (Cloud SQL), garantizando persistencia, integridad y disponibilidad de la información.
+La API se conecta a PostgreSQL en Cloud SQL y es consumida por el frontend servido desde el mismo contenedor en Cloud Run.
 
 ---
 
 # 2. URL Base
 
-```bash
+```
 https://game-list-api-rjqftd4irq-uc.a.run.app
 ```
 
+Todos los endpoints están bajo el prefijo `/api`.
+
 ---
 
-# 3. Modelo de Datos
+# 3. Modelos de Datos
 
 ## Videojuego
 
@@ -28,15 +30,23 @@ https://game-list-api-rjqftd4irq-uc.a.run.app
 {
   "id": 1,
   "titulo": "God of War",
-  "plataforma": "PlayStation",
   "anio": 2018,
+  "descripcion": "Aventura mitológica de Kratos y su hijo Atreus.",
+  "imagenUrl": "https://ejemplo.com/gow.jpg",
   "estado": "TERMINADO",
   "categoria": {
     "id": 1,
     "nombre": "Acción"
+  },
+  "plataforma": {
+    "id": 2,
+    "nombre": "PlayStation 4",
+    "fabricante": "Sony"
   }
 }
 ```
+
+**Estados válidos:** `PENDIENTE` | `JUGANDO` | `TERMINADO` | `FAVORITO`
 
 ---
 
@@ -51,406 +61,533 @@ https://game-list-api-rjqftd4irq-uc.a.run.app
 
 ---
 
-# 4. Endpoints de Videojuegos
-
----
-
-## GET /videojuegos
-
-### Funcionalidad
-
-Este endpoint permite obtener todos los videojuegos almacenados en la base de datos.
-
-No realiza ningún tipo de modificación, únicamente consulta información. Es utilizado principalmente para mostrar listados en el frontend.
-
----
-
-### Flujo interno
-
-1. El cliente envía una petición HTTP GET.
-2. El controlador (VideojuegoController) recibe la solicitud.
-3. Se invoca el servicio (VideojuegoService).
-4. El servicio consulta el repositorio mediante `findAll()`.
-5. El repositorio ejecuta una consulta SQL sobre la base de datos.
-6. Se retorna una lista de objetos al cliente en formato JSON.
-
----
-
-### Request
-
-No requiere parámetros ni body.
-
----
-
-### Response (200 OK)
-
-```json
-[
-  {
-    "id": 1,
-    "titulo": "God of War",
-    "plataforma": "PlayStation",
-    "anio": 2018,
-    "estado": "TERMINADO"
-  }
-]
-```
-
----
-
-### Posibles errores
-
-* 500 → Error en conexión con base de datos
-
----
-
-## GET /videojuegos/{id}
-
-### Funcionalidad
-
-Permite obtener un videojuego específico a partir de su identificador único.
-
-Se utiliza para visualizar detalles o validar la existencia de un registro.
-
----
-
-### Flujo interno
-
-1. El controlador recibe el ID desde la URL.
-2. Se envía al servicio.
-3. El servicio ejecuta `findById(id)`.
-4. Si el videojuego existe:
-
-   * Se retorna el objeto.
-5. Si no existe:
-
-   * Se lanza una excepción.
-   * Se retorna error 404.
-
----
-
-### Request
-
-Parámetro:
-
-* id (Long)
-
----
-
-### Response (200 OK)
+## Plataforma
 
 ```json
 {
   "id": 1,
-  "titulo": "God of War",
-  "plataforma": "PlayStation",
-  "anio": 2018,
-  "estado": "TERMINADO"
+  "nombre": "PlayStation 5",
+  "fabricante": "Sony"
 }
 ```
 
 ---
 
-### Error (404)
+## Reseña
 
 ```json
 {
-  "error": "Videojuego no encontrado"
-}
-```
-
----
-
-## POST /videojuegos
-
-### Funcionalidad
-
-Permite registrar un nuevo videojuego en el sistema.
-
-Este endpoint inserta un nuevo registro en la base de datos y establece la relación con una categoría existente.
-
----
-
-### Flujo interno
-
-1. El cliente envía un JSON en el body.
-2. El controlador recibe el objeto (@RequestBody).
-3. El servicio valida:
-
-   * Campos obligatorios
-   * Formato de datos
-4. Se valida la existencia de la categoría.
-5. Se construye la entidad Videojuego.
-6. Se guarda con `save()`.
-7. Se retorna el objeto creado.
-
----
-
-### Request Body
-
-```json
-{
-  "titulo": "The Witcher 3",
-  "plataforma": "PC",
-  "anio": 2015,
-  "estado": "JUGANDO",
-  "categoria": {
-    "id": 1
+  "id": 1,
+  "autor": "Brandon",
+  "comentario": "Obra maestra, historia increíble.",
+  "puntuacion": 9,
+  "videojuego": {
+    "id": 1,
+    "titulo": "God of War"
   }
 }
 ```
 
 ---
 
-### Validaciones
-
-* titulo no vacío
-* plataforma obligatoria
-* año válido
-* categoría existente
-
----
-
-### Response (201 Created)
+## Wishlist
 
 ```json
 {
-  "id": 2,
-  "titulo": "The Witcher 3",
-  "plataforma": "PC",
-  "anio": 2015,
-  "estado": "JUGANDO"
+  "id": 1,
+  "titulo": "Elden Ring",
+  "prioridad": "ALTA",
+  "notas": "Esperar oferta en Steam",
+  "categoria": {
+    "id": 1,
+    "nombre": "RPG"
+  },
+  "plataforma": {
+    "id": 3,
+    "nombre": "PC",
+    "fabricante": "N/A"
+  }
 }
 ```
 
+**Prioridades válidas:** `ALTA` | `MEDIA` | `BAJA`
+
 ---
 
-### Errores
+# 4. Endpoints de Videojuegos
 
-#### 400
+## GET /api/videojuegos
 
-```json
-{
-  "error": "Datos inválidos"
-}
+Obtiene todos los videojuegos. Soporta filtros opcionales combinables.
+
+**Query params opcionales:**
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `titulo` | String | Búsqueda parcial, insensible a mayúsculas. `?titulo=wit` encuentra "The Witcher 3" |
+| `estado` | String | Filtra por estado. Valores: `PENDIENTE`, `JUGANDO`, `TERMINADO`, `FAVORITO` |
+| `categoriaId` | Long | Filtra por ID de categoría |
+| `plataformaId` | Long | Filtra por ID de plataforma |
+
+**Ejemplos:**
+```
+GET /api/videojuegos
+GET /api/videojuegos?titulo=witcher
+GET /api/videojuegos?estado=JUGANDO&categoriaId=2
+GET /api/videojuegos?plataformaId=1&estado=TERMINADO
 ```
 
-#### 500
-
-```json
-{
-  "error": "Error al guardar"
-}
-```
-
----
-
-## PUT /videojuegos/{id}
-
-### Funcionalidad
-
-Permite actualizar un videojuego existente.
-
-Se utiliza para modificar datos previamente almacenados sin crear un nuevo registro.
-
----
-
-### Flujo interno
-
-1. Se recibe ID y body.
-2. Se busca el registro.
-3. Si no existe → error 404.
-4. Si existe:
-
-   * Se actualizan campos.
-   * Se guarda nuevamente.
-5. Se retorna confirmación.
-
----
-
-### Request Body
-
-```json
-{
-  "titulo": "FIFA 25",
-  "plataforma": "PS5",
-  "anio": 2025,
-  "estado": "PENDIENTE"
-}
-```
-
----
-
-### Response (200 OK)
-
-```json
-{
-  "mensaje": "Videojuego actualizado correctamente"
-}
-```
-
----
-
-### Errores
-
-```json
-{
-  "error": "Videojuego no encontrado"
-}
-```
-
----
-
-## DELETE /videojuegos/{id}
-
-### Funcionalidad
-
-Permite eliminar un videojuego del sistema.
-
----
-
-### Flujo interno
-
-1. Se recibe ID.
-2. Se valida existencia.
-3. Si existe:
-
-   * Se elimina con `deleteById()`.
-4. Si no:
-
-   * Error 404.
-
----
-
-### Response
-
-```json
-{
-  "mensaje": "Videojuego eliminado correctamente"
-}
-```
-
----
-
-### Error
-
-```json
-{
-  "error": "No encontrado"
-}
-```
-
----
-
-## GET /videojuegos/categoria/{categoriaId}
-
-### Funcionalidad
-
-Permite obtener videojuegos filtrados por categoría.
-
----
-
-### Flujo interno
-
-1. Se recibe ID de categoría.
-2. Se ejecuta consulta personalizada.
-3. Se retornan resultados filtrados.
-
----
-
-### Response
-
+**Response 200 OK:**
 ```json
 [
   {
     "id": 1,
-    "titulo": "Zelda"
+    "titulo": "The Witcher 3",
+    "anio": 2015,
+    "descripcion": "RPG de mundo abierto.",
+    "imagenUrl": null,
+    "estado": "JUGANDO",
+    "categoria": { "id": 2, "nombre": "RPG" },
+    "plataforma": { "id": 3, "nombre": "PC", "fabricante": "N/A" }
   }
 ]
 ```
+
+---
+
+## GET /api/videojuegos/estadisticas
+
+Retorna el conteo de videojuegos agrupado por estado.
+
+**Response 200 OK:**
+```json
+{
+  "PENDIENTE": 5,
+  "JUGANDO": 2,
+  "TERMINADO": 8,
+  "FAVORITO": 3,
+  "TOTAL": 18
+}
+```
+
+---
+
+## GET /api/videojuegos/{id}
+
+Obtiene un videojuego por su ID.
+
+**Response 200 OK:** objeto Videojuego completo.
+
+**Error 404:**
+```json
+{
+  "timestamp": "2025-04-22T10:30:00",
+  "status": 404,
+  "error": "Not Found",
+  "message": "Videojuego con id 99 no encontrado"
+}
+```
+
+---
+
+## GET /api/videojuegos/{id}/categoria
+
+Retorna la categoría asignada al videojuego.
+
+**Response 200 OK:**
+```json
+{
+  "id": 2,
+  "nombre": "RPG"
+}
+```
+
+**Error 404** si el videojuego no existe o no tiene categoría asignada.
+
+---
+
+## POST /api/videojuegos
+
+Crea un nuevo videojuego.
+
+**Request Body:**
+```json
+{
+  "titulo": "Hollow Knight",
+  "anio": 2017,
+  "descripcion": "Metroidvania de insectos.",
+  "imagenUrl": "https://ejemplo.com/hk.jpg",
+  "estado": "PENDIENTE",
+  "categoria": { "id": 1 },
+  "plataforma": { "id": 3 }
+}
+```
+
+**Validaciones:**
+- `titulo`: obligatorio, no vacío
+- `anio`: número entero válido
+- `estado`: uno de los 4 valores válidos
+- `categoria` y `plataforma`: opcionales; si se envían, el `id` debe existir
+
+**Response 201 Created:** objeto Videojuego creado con su `id`.
+
+**Error 400:**
+```json
+{
+  "timestamp": "...",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "titulo: no debe estar vacío"
+}
+```
+
+---
+
+## PUT /api/videojuegos/{id}
+
+Actualiza todos los campos de un videojuego existente.
+
+**Request Body:** mismo formato que POST.
+
+**Response 200 OK:** objeto Videojuego actualizado.
+
+**Error 404** si el ID no existe.
+
+---
+
+## DELETE /api/videojuegos/{id}
+
+Elimina un videojuego y sus reseñas asociadas (cascade).
+
+**Response 204 No Content** (sin body).
+
+**Error 404** si el ID no existe.
 
 ---
 
 # 5. Endpoints de Categorías
 
----
+## GET /api/categorias
 
-## GET /categorias
+Retorna todas las categorías.
 
-Obtiene todas las categorías.
-
----
-
-## POST /categorias
-
-Crea una nueva categoría.
-
-### Body
-
+**Response 200 OK:**
 ```json
-{
-  "nombre": "RPG"
-}
+[
+  { "id": 1, "nombre": "Acción" },
+  { "id": 2, "nombre": "RPG" }
+]
 ```
 
 ---
 
-## DELETE /categorias/{id}
+## GET /api/categorias/{id}
 
-Elimina una categoría existente.
-
----
-
-# 6. Manejo de Errores
+Retorna una categoría por ID.
 
 ---
 
-## Funcionamiento
+## POST /api/categorias
 
-Los errores se manejan en:
+Crea una nueva categoría. El nombre debe ser único (insensible a mayúsculas).
 
-* Controller → recibe petición
-* Service → valida lógica
-* Repository → acceso a BD
-
----
-
-## Tipos
-
-### 400
-
-Datos inválidos
-
-### 404
-
-No encontrado
-
-### 500
-
-Error interno
-
----
-
-## Estructura
-
+**Request Body:**
 ```json
 {
-  "error": "Descripción del problema"
+  "nombre": "Aventura"
 }
+```
+
+**Response 201 Created:**
+```json
+{ "id": 3, "nombre": "Aventura" }
+```
+
+**Error 409 Conflict** si ya existe una categoría con ese nombre.
+
+---
+
+## PUT /api/categorias/{id}
+
+Actualiza el nombre de una categoría.
+
+**Request Body:**
+```json
+{ "nombre": "Aventura y Acción" }
+```
+
+**Response 200 OK:** categoría actualizada.
+
+**Error 409 Conflict** si el nuevo nombre ya lo usa otra categoría.
+
+---
+
+## DELETE /api/categorias/{id}
+
+Elimina una categoría.
+
+**Response 204 No Content**.
+
+**Error 404** si no existe.
+
+---
+
+# 6. Endpoints de Plataformas
+
+## GET /api/plataformas
+
+Retorna todas las plataformas.
+
+**Response 200 OK:**
+```json
+[
+  { "id": 1, "nombre": "PlayStation 5", "fabricante": "Sony" },
+  { "id": 2, "nombre": "Xbox Series X", "fabricante": "Microsoft" },
+  { "id": 3, "nombre": "PC", "fabricante": "N/A" }
+]
 ```
 
 ---
 
-# 7. Swagger
+## GET /api/plataformas/{id}
 
-```bash
+Retorna una plataforma por ID.
+
+---
+
+## POST /api/plataformas
+
+Crea una nueva plataforma. El nombre debe ser único.
+
+**Request Body:**
+```json
+{
+  "nombre": "Nintendo Switch",
+  "fabricante": "Nintendo"
+}
+```
+
+**Response 201 Created:** objeto Plataforma con `id`.
+
+**Error 409 Conflict** si el nombre ya existe.
+
+---
+
+## PUT /api/plataformas/{id}
+
+Actualiza nombre y fabricante de una plataforma.
+
+**Request Body:**
+```json
+{
+  "nombre": "Nintendo Switch OLED",
+  "fabricante": "Nintendo"
+}
+```
+
+**Response 200 OK:** plataforma actualizada.
+
+---
+
+## DELETE /api/plataformas/{id}
+
+Elimina una plataforma.
+
+**Response 204 No Content**.
+
+**Error 404** si no existe.
+
+---
+
+# 7. Endpoints de Reseñas
+
+## GET /api/resenas/videojuego/{videojuegoId}
+
+Retorna todas las reseñas de un videojuego específico.
+
+**Response 200 OK:**
+```json
+[
+  {
+    "id": 1,
+    "autor": "Brandon",
+    "comentario": "Historia increíble, lo recomiendo.",
+    "puntuacion": 9,
+    "videojuego": { "id": 1, "titulo": "God of War" }
+  }
+]
+```
+
+**Error 404** si el videojuego no existe.
+
+---
+
+## POST /api/resenas
+
+Crea una reseña vinculada a un videojuego existente.
+
+**Request Body:**
+```json
+{
+  "videojuegoId": 1,
+  "autor": "Brandon",
+  "comentario": "Juego excelente, 100% recomendado.",
+  "puntuacion": 9
+}
+```
+
+**Validaciones:**
+- `videojuegoId`: obligatorio, debe existir
+- `autor`: obligatorio, no vacío
+- `comentario`: obligatorio, no vacío
+- `puntuacion`: entero entre 1 y 10
+
+**Response 201 Created:** objeto Reseña creada con su `id`.
+
+**Error 400** si la puntuación está fuera de rango o falta algún campo obligatorio.
+
+**Error 404** si el videojuego no existe.
+
+---
+
+## DELETE /api/resenas/{id}
+
+Elimina una reseña por ID.
+
+**Response 204 No Content**.
+
+**Error 404** si la reseña no existe.
+
+---
+
+# 8. Endpoints de Wishlist
+
+## GET /api/wishlist
+
+Retorna los items de la wishlist. Soporta filtros opcionales.
+
+**Query params opcionales:**
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `titulo` | String | Búsqueda parcial por título |
+| `prioridad` | String | Filtra por prioridad: `ALTA`, `MEDIA`, `BAJA` |
+
+**Ejemplos:**
+```
+GET /api/wishlist
+GET /api/wishlist?prioridad=ALTA
+GET /api/wishlist?titulo=elden
+```
+
+**Response 200 OK:**
+```json
+[
+  {
+    "id": 1,
+    "titulo": "Elden Ring",
+    "prioridad": "ALTA",
+    "notas": "Esperar oferta",
+    "categoria": { "id": 2, "nombre": "RPG" },
+    "plataforma": { "id": 3, "nombre": "PC", "fabricante": "N/A" }
+  }
+]
+```
+
+---
+
+## GET /api/wishlist/{id}
+
+Retorna un item de wishlist por ID.
+
+**Error 404** si no existe.
+
+---
+
+## POST /api/wishlist
+
+Agrega un nuevo item a la wishlist.
+
+**Request Body:**
+```json
+{
+  "titulo": "Elden Ring",
+  "prioridad": "ALTA",
+  "notas": "Esperar oferta en Steam",
+  "categoria": { "id": 2 },
+  "plataforma": { "id": 3 }
+}
+```
+
+**Validaciones:**
+- `titulo`: obligatorio, no vacío
+- `prioridad`: obligatorio, uno de `ALTA`, `MEDIA`, `BAJA`
+- `categoria` y `plataforma`: opcionales
+
+**Response 201 Created:** objeto Wishlist con `id`.
+
+---
+
+## PUT /api/wishlist/{id}
+
+Actualiza un item de wishlist existente.
+
+**Request Body:** mismo formato que POST.
+
+**Response 200 OK:** objeto actualizado.
+
+**Error 404** si no existe.
+
+---
+
+## DELETE /api/wishlist/{id}
+
+Elimina un item de la wishlist.
+
+**Response 204 No Content**.
+
+**Error 404** si no existe.
+
+---
+
+# 9. Manejo de Errores
+
+Todos los errores siguen esta estructura JSON:
+
+```json
+{
+  "timestamp": "2025-04-22T10:30:00.000+00:00",
+  "status": 404,
+  "error": "Not Found",
+  "message": "Videojuego con id 99 no encontrado",
+  "path": "/api/videojuegos/99"
+}
+```
+
+| Código | Causa |
+|--------|-------|
+| 400 | Validación fallida (campo vacío, rango inválido, etc.) |
+| 404 | Recurso no encontrado |
+| 409 | Conflicto — nombre duplicado en categoría o plataforma |
+| 500 | Error interno del servidor |
+
+---
+
+# 10. Swagger UI
+
+Documentación interactiva disponible en producción:
+
+```
 https://game-list-api-rjqftd4irq-uc.a.run.app/swagger-ui/index.html
 ```
 
+Permite ejecutar peticiones directamente desde el navegador.
+
 ---
 
-# 8. Pruebas realizadas
+# 11. Pruebas Realizadas
 
-* Swagger
-* Postman
-* Frontend en Firebase
+- Swagger UI (producción)
+- Postman (colección manual por endpoint)
+- Frontend integrado en Cloud Run
+- Capturas en [docs/screenshot/](screenshot/)
