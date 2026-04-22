@@ -30,7 +30,12 @@ public class VideojuegoController {
             @RequestParam(required = false) Long categoriaId,
             @RequestParam(required = false) Long plataformaId) {
 
-        return repo.buscarConFiltros(titulo, estado, categoriaId, plataformaId);
+        return repo.findAll().stream()
+            .filter(v -> titulo == null || v.getTitulo().toLowerCase().contains(titulo.toLowerCase()))
+            .filter(v -> estado == null || v.getEstado() == estado)
+            .filter(v -> categoriaId == null || (v.getCategoria() != null && v.getCategoria().getId().equals(categoriaId)))
+            .filter(v -> plataformaId == null || (v.getPlataforma() != null && v.getPlataforma().getId().equals(plataformaId)))
+            .collect(java.util.stream.Collectors.toList());
     }
 
     @GetMapping("/estadisticas")

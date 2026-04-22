@@ -77,7 +77,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("btn-abrir-formulario").addEventListener("click", abrirFormulario);
   document.getElementById("reload-btn").addEventListener("click", cargarVideojuegos);
   document.getElementById("cancel-btn").addEventListener("click", () => {
-    if (editandoId && !confirm("¿Descartar los cambios de edición?")) return;
+    if (editandoId && !confirm("\u00BFDescartar los cambios de edici\u00F3n?")) return;
     resetForm();
   });
 
@@ -107,7 +107,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     editar(detalleJuegoId);
   });
   document.getElementById("detalle-btn-eliminar").addEventListener("click", async () => {
-    if (!confirm("¿Eliminar este juego?")) return;
+    if (!confirm("\u00BFEliminar este juego?")) return;
     await fetch(`${API_URL}/videojuegos/${detalleJuegoId}`, { method: "DELETE" });
     mostrarBiblioteca();
     await cargarVideojuegos();
@@ -252,9 +252,9 @@ function renderizar() {
     if (videojuegos.length === 0) {
       gamesList.innerHTML = `
         <div style="text-align:center;padding:48px 20px;color:var(--text2)">
-          <div style="font-size:3rem;margin-bottom:16px">🎮</div>
-          <p style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:8px">Tu biblioteca está vacía</p>
-          <p style="font-size:14px;margin-bottom:20px">Agrega tu primer videojuego con el botón de arriba.</p>
+          <div style="font-size:3rem;margin-bottom:16px">\u{1F3AE}</div>
+          <p style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:8px">Tu biblioteca est\u00E1 vac\u00EDa</p>
+          <p style="font-size:14px;margin-bottom:20px">Agrega tu primer videojuego con el bot\u00F3n de arriba.</p>
         </div>`;
     } else {
       emptyMsg.style.display = "block";
@@ -271,19 +271,19 @@ function renderizar() {
     const portada = j.imagenUrl
       ? `<img class="card-cover" src="${j.imagenUrl}" alt="${j.titulo}"
              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-         <div class="card-cover-placeholder" style="display:none">🎮</div>`
-      : `<div class="card-cover-placeholder">🎮</div>`;
+         <div class="card-cover-placeholder" style="display:none">\u{1F3AE}</div>`
+      : `<div class="card-cover-placeholder">\u{1F3AE}</div>`;
 
     card.innerHTML = `
       ${portada}
       <div class="card-body">
         <div class="card-title" title="${j.titulo}">${j.titulo}</div>
-        <div class="card-meta">${j.plataforma?.nombre || '—'} · ${j.anio || ''}</div>
-        <div class="card-meta">${j.categoria?.nombre || '—'}</div>
+        <div class="card-meta">${j.plataforma?.nombre || '\u2014'} \u00B7 ${j.anio || ''}</div>
+        <div class="card-meta">${j.categoria?.nombre || '\u2014'}</div>
         <span class="estado-badge estado-${j.estado}">${estadoLabel(j.estado)}</span>
         <div class="card-actions">
-          <button class="edit-btn"   onclick="event.stopPropagation();editar(${j.id})">✏ Editar</button>
-          <button class="delete-btn" onclick="event.stopPropagation();eliminar(${j.id})">🗑 Eliminar</button>
+          <button class="edit-btn"   onclick="event.stopPropagation();editar(${j.id})">\u270F Editar</button>
+          <button class="delete-btn" onclick="event.stopPropagation();eliminar(${j.id})">\u{1F5D1} Eliminar</button>
         </div>
       </div>`;
 
@@ -322,9 +322,9 @@ async function verDetalle(id) {
   }
 
   document.getElementById("detalle-titulo").textContent    = j.titulo;
-  document.getElementById("detalle-anio").textContent      = j.anio || "—";
-  document.getElementById("detalle-categoria").textContent = j.categoria?.nombre  || "—";
-  document.getElementById("detalle-plataforma").textContent= j.plataforma?.nombre || "—";
+  document.getElementById("detalle-anio").textContent      = j.anio || "\u2014";
+  document.getElementById("detalle-categoria").textContent = j.categoria?.nombre  || "\u2014";
+  document.getElementById("detalle-plataforma").textContent= j.plataforma?.nombre || "\u2014";
   document.getElementById("detalle-descripcion").textContent = j.descripcion || "";
 
   const badge = document.getElementById("detalle-estado");
@@ -351,7 +351,7 @@ function mostrarBiblioteca() {
 async function cargarResenas(videojuegoId) {
   const lista    = document.getElementById("resenas-lista");
   const emptyRes = document.getElementById("resenas-empty");
-  lista.innerHTML = '<p style="color:#64748b;font-size:13px">Cargando reseñas...</p>';
+  lista.innerHTML = '<p style="color:#64748b;font-size:13px">Cargando rese\u00F1as...</p>';
 
   const res    = await fetch(`${API_URL}/resenas/videojuego/${videojuegoId}`);
   const resenas = await res.json();
@@ -360,14 +360,14 @@ async function cargarResenas(videojuegoId) {
 
   if (resenas.length === 0) {
     emptyRes.style.display = "block";
-    document.getElementById("detalle-promedio").textContent = "—";
+    document.getElementById("detalle-promedio").textContent = "\u2014";
     return;
   }
 
   emptyRes.style.display = "none";
 
   const promedio = (resenas.reduce((s, r) => s + r.puntuacion, 0) / resenas.length).toFixed(1);
-  document.getElementById("detalle-promedio").textContent = `${promedio} ★`;
+  document.getElementById("detalle-promedio").textContent = `${promedio} \u2605`;
 
   resenas.forEach(r => {
     const div = document.createElement("div");
@@ -375,10 +375,10 @@ async function cargarResenas(videojuegoId) {
     div.innerHTML = `
       <div class="resena-score">${r.puntuacion}</div>
       <div class="resena-body">
-        <div class="resena-autor">${r.autor || "Anónimo"}</div>
+        <div class="resena-autor">${r.autor || "An\u00F3nimo"}</div>
         <div class="resena-comentario">${r.comentario || ""}</div>
       </div>
-      <button class="resena-delete" title="Eliminar reseña" onclick="eliminarResena(${r.id})">🗑</button>`;
+      <button class="resena-delete" title="Eliminar rese\u00F1a" onclick="eliminarResena(${r.id})">\u{1F5D1}</button>`;
     lista.appendChild(div);
   });
 }
@@ -405,7 +405,7 @@ async function guardarResena(e) {
 }
 
 async function eliminarResena(id) {
-  if (!confirm("¿Eliminar esta reseña?")) return;
+  if (!confirm("\u00BFEliminar esta rese\u00F1a?")) return;
   await fetch(`${API_URL}/resenas/${id}`, { method: "DELETE" });
   await cargarResenas(detalleJuegoId);
 }
@@ -456,7 +456,7 @@ function validarFormulario() {
   const grupoAnio   = document.getElementById("anio").closest(".field-group");
 
   if (!titulo) {
-    errorTitulo.textContent = "El título es obligatorio.";
+    errorTitulo.textContent = "El t\u00EDtulo es obligatorio.";
     grupoTitulo.classList.add("has-error");
     valido = false;
   } else {
@@ -465,11 +465,11 @@ function validarFormulario() {
   }
 
   if (!anio) {
-    errorAnio.textContent = "El año es obligatorio.";
+    errorAnio.textContent = "El a\u00F1o es obligatorio.";
     grupoAnio.classList.add("has-error");
     valido = false;
   } else if (Number(anio) < 1970 || Number(anio) > 2100) {
-    errorAnio.textContent = "El año debe estar entre 1970 y 2100.";
+    errorAnio.textContent = "El a\u00F1o debe estar entre 1970 y 2100.";
     grupoAnio.classList.add("has-error");
     valido = false;
   } else {
@@ -516,7 +516,7 @@ async function guardarVideojuego(e) {
     setTimeout(() => { msg.textContent = ""; }, 3000);
   } else {
     msg.style.color = "#f87171";
-    msg.textContent = "Error al guardar. Verifica los campos e inténtalo de nuevo.";
+    msg.textContent = "Error al guardar. Verifica los campos e int\u00E9ntalo de nuevo.";
   }
 }
 
@@ -547,7 +547,7 @@ function editar(id) {
 }
 
 async function eliminar(id) {
-  if (!confirm("¿Eliminar este juego?")) return;
+  if (!confirm("\u00BFEliminar este juego?")) return;
   await fetch(`${API_URL}/videojuegos/${id}`, { method: "DELETE" });
   await cargarVideojuegos();
 }
@@ -615,17 +615,17 @@ function renderizarWishlist() {
     const div = document.createElement("div");
     div.className = `wl-card prioridad-${w.prioridad}`;
 
-    const plat = w.plataforma?.nombre || w.plataformaNombre || "—";
-    const cat  = w.categoria?.nombre  || w.categoriaNombre  || "—";
+    const plat = w.plataforma?.nombre || w.plataformaNombre || "\u2014";
+    const cat  = w.categoria?.nombre  || w.categoriaNombre  || "\u2014";
     const prioLabel = { ALTA: "Alta", MEDIA: "Media", BAJA: "Baja" };
 
     div.innerHTML = `
       <div class="wl-card-header">
         <div class="wl-titulo">${w.titulo}</div>
-        <button class="wl-delete" title="Eliminar" onclick="eliminarWishlistItem(${w.id})">🗑</button>
+        <button class="wl-delete" title="Eliminar" onclick="eliminarWishlistItem(${w.id})">\u{1F5D1}</button>
       </div>
       <span class="wl-badge prioridad-badge-${w.prioridad}">${prioLabel[w.prioridad] || w.prioridad}</span>
-      <div class="wl-meta">${plat} · ${cat}</div>
+      <div class="wl-meta">${plat} \u00B7 ${cat}</div>
       ${w.notas ? `<div class="wl-notas">"${w.notas}"</div>` : ""}
     `;
     grid.appendChild(div);
@@ -639,7 +639,7 @@ async function guardarWishlistItem(e) {
   const errorEl = document.getElementById("wl-error-titulo");
 
   if (!titulo) {
-    errorEl.textContent = "El título es obligatorio.";
+    errorEl.textContent = "El t\u00EDtulo es obligatorio.";
     return;
   }
   errorEl.textContent = "";
@@ -669,7 +669,7 @@ async function guardarWishlistItem(e) {
 }
 
 async function eliminarWishlistItem(id) {
-  if (!confirm("¿Quitar este juego de la wishlist?")) return;
+  if (!confirm("\u00BFQuitar este juego de la wishlist?")) return;
   await fetch(`${API_URL}/wishlist/${id}`, { method: "DELETE" });
   await cargarWishlist();
 }

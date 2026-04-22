@@ -26,8 +26,8 @@ steps:
       - 'gamevoult'
       - '--image=us-central1-docker.pkg.dev/game-list-cloud-493923/cloud-run-source-deploy/gamevoult:$COMMIT_SHA'
       - '--region=us-central1'
-      - '--add-cloudsql-instances=game-list-cloud-493923:us-central1:free-trial-first-project'
-      - '--set-env-vars=DB_NAME=gamelist,DB_USER=$_DB_USER,DB_PASSWORD=$_DB_PASSWORD,INSTANCE_CONNECTION_NAME=game-list-cloud-493923:us-central1:free-trial-first-project'
+      - '--add-cloudsql-instances=game-list-cloud-493923:us-central1:gamevoult-db'
+      - '--set-env-vars=DB_NAME=gamelist,DB_USER=$_DB_USER,DB_PASSWORD=$_DB_PASSWORD,INSTANCE_CONNECTION_NAME=game-list-cloud-493923:us-central1:gamevoult-db'
       - '--quiet'
 
 substitutions:
