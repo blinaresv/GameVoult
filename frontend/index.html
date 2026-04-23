@@ -6,7 +6,7 @@
   <title>GameVault — Biblioteca de Videojuegos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -14,14 +14,33 @@
 <div class="container">
 
   <header class="header">
-    <h1>🎮 GameVault</h1>
-    <p>Tu biblioteca personal de videojuegos</p>
+    <div class="header-brand">
+      <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="2" y="7" width="20" height="13" rx="5"/>
+        <path d="M8 12h2m-1-1v2M15 13h.01M17 13h.01"/>
+      </svg>
+      <div>
+        <h1>GameVault</h1>
+        <p>Tu biblioteca personal de videojuegos</p>
+      </div>
+    </div>
   </header>
 
   <!-- ═══════════════ NAVEGACIÓN ═══════════════ -->
   <nav class="nav-tabs">
-    <button class="nav-tab active" id="tab-biblioteca" data-vista="biblioteca">🎮 Biblioteca</button>
-    <button class="nav-tab" id="tab-wishlist"  data-vista="wishlist">⭐ Wishlist</button>
+    <button class="nav-tab active" id="tab-biblioteca" data-vista="biblioteca">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="2" y="7" width="20" height="13" rx="5"/>
+        <path d="M8 12h2m-1-1v2M15 13h.01M17 13h.01"/>
+      </svg>
+      Biblioteca
+    </button>
+    <button class="nav-tab" id="tab-wishlist" data-vista="wishlist">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+      </svg>
+      Wishlist
+    </button>
   </nav>
 
   <!-- ═══════════════ VISTA: BIBLIOTECA ═══════════════ -->
@@ -106,7 +125,12 @@
             </div>
             <div class="imagen-preview-wrap">
               <img id="imagen-preview" class="imagen-preview" src="" alt="Preview" style="display:none" />
-              <div id="imagen-preview-placeholder" class="imagen-preview-placeholder">🎮</div>
+              <div id="imagen-preview-placeholder" class="imagen-preview-placeholder">
+                <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="2" y="7" width="20" height="13" rx="5"/>
+                  <path d="M8 12h2m-1-1v2M15 13h.01M17 13h.01"/>
+                </svg>
+              </div>
             </div>
           </div>
 
@@ -146,7 +170,9 @@
         <div class="tools">
           <div class="search-wrapper">
             <input type="text" id="search-input" placeholder="Buscar por título..." />
-            <button type="button" id="clear-search" class="clear-btn" title="Limpiar búsqueda" style="display:none">✕</button>
+            <button type="button" id="clear-search" class="clear-btn" title="Limpiar búsqueda" style="display:none">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
           </div>
           <select id="filter-estado">
             <option value="">Todos los estados</option>
@@ -158,8 +184,8 @@
           <select id="filter-category">
             <option value="">Todas las categorías</option>
           </select>
-          <button class="btn btn-outline" id="clear-filters-btn">✕ Limpiar</button>
-          <button class="btn btn-gray" id="reload-btn">↺ Recargar</button>
+          <button class="btn btn-outline" id="clear-filters-btn">Limpiar filtros</button>
+          <button class="btn btn-gray" id="reload-btn">Recargar</button>
         </div>
       </div>
 
@@ -178,7 +204,12 @@
     <section class="box detalle-hero">
       <div class="detalle-cover-wrap">
         <img id="detalle-imagen" class="detalle-cover" src="" alt="" style="display:none" />
-        <div id="detalle-placeholder" class="detalle-cover-placeholder">🎮</div>
+        <div id="detalle-placeholder" class="detalle-cover-placeholder">
+          <svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="2" y="7" width="20" height="13" rx="5"/>
+            <path d="M8 12h2m-1-1v2M15 13h.01M17 13h.01"/>
+          </svg>
+        </div>
       </div>
 
       <div class="detalle-info">
@@ -209,8 +240,8 @@
         <p id="detalle-descripcion" class="detalle-descripcion"></p>
 
         <div class="detalle-acciones">
-          <button class="btn" id="detalle-btn-editar">✏ Editar juego</button>
-          <button class="btn btn-danger" id="detalle-btn-eliminar">🗑 Eliminar juego</button>
+          <button class="btn" id="detalle-btn-editar">Editar juego</button>
+          <button class="btn btn-danger" id="detalle-btn-eliminar">Eliminar juego</button>
         </div>
       </div>
     </section>
