@@ -4,6 +4,8 @@ const API_URL = (window.location.hostname === 'localhost' && window.location.por
   ? 'http://localhost:8080/api'
   : '/api';
 
+const ICON_CONTROLLER = '<svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="13" rx="5"/><path d="M8 12h2m-1-1v2M15 13h.01M17 13h.01"/></svg>';
+
 let videojuegos    = [];
 let categorias     = [];
 let plataformas    = [];
@@ -251,10 +253,10 @@ function renderizar() {
   if (lista.length === 0) {
     if (videojuegos.length === 0) {
       gamesList.innerHTML = `
-        <div style="text-align:center;padding:48px 20px;color:var(--text2)">
-          <div style="font-size:3rem;margin-bottom:16px">\u{1F3AE}</div>
-          <p style="font-size:1.1rem;font-weight:600;color:var(--text);margin-bottom:8px">Tu biblioteca est\u00E1 vac\u00EDa</p>
-          <p style="font-size:14px;margin-bottom:20px">Agrega tu primer videojuego con el bot\u00F3n de arriba.</p>
+        <div style="text-align:center;padding:56px 20px;grid-column:1/-1">
+          <div style="margin-bottom:16px;display:flex;justify-content:center;color:var(--text-3)">${ICON_CONTROLLER.replace('class="placeholder-icon"','style="width:48px;height:48px;opacity:0.28"')}</div>
+          <p style="font-size:1rem;font-weight:700;color:var(--text-2);margin-bottom:6px">Tu biblioteca est\u00E1 vac\u00EDa</p>
+          <p style="font-size:13px;color:var(--text-3)">Agrega tu primer videojuego con el bot\u00F3n de arriba.</p>
         </div>`;
     } else {
       emptyMsg.style.display = "block";
@@ -271,8 +273,8 @@ function renderizar() {
     const portada = j.imagenUrl
       ? `<img class="card-cover" src="${j.imagenUrl}" alt="${j.titulo}"
              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-         <div class="card-cover-placeholder" style="display:none">\u{1F3AE}</div>`
-      : `<div class="card-cover-placeholder">\u{1F3AE}</div>`;
+         <div class="card-cover-placeholder" style="display:none">${ICON_CONTROLLER}</div>`
+      : `<div class="card-cover-placeholder">${ICON_CONTROLLER}</div>`;
 
     card.innerHTML = `
       ${portada}
@@ -282,8 +284,8 @@ function renderizar() {
         <div class="card-meta">${j.categoria?.nombre || '\u2014'}</div>
         <span class="estado-badge estado-${j.estado}">${estadoLabel(j.estado)}</span>
         <div class="card-actions">
-          <button class="edit-btn"   onclick="event.stopPropagation();editar(${j.id})">\u270F Editar</button>
-          <button class="delete-btn" onclick="event.stopPropagation();eliminar(${j.id})">\u{1F5D1} Eliminar</button>
+          <button class="edit-btn"   onclick="event.stopPropagation();editar(${j.id})">Editar</button>
+          <button class="delete-btn" onclick="event.stopPropagation();eliminar(${j.id})">Eliminar</button>
         </div>
       </div>`;
 
@@ -378,7 +380,7 @@ async function cargarResenas(videojuegoId) {
         <div class="resena-autor">${r.autor || "An\u00F3nimo"}</div>
         <div class="resena-comentario">${r.comentario || ""}</div>
       </div>
-      <button class="resena-delete" title="Eliminar rese\u00F1a" onclick="eliminarResena(${r.id})">\u{1F5D1}</button>`;
+      <button class="resena-delete" title="Eliminar rese\u00F1a" onclick="eliminarResena(${r.id})">&times;</button>`;
     lista.appendChild(div);
   });
 }
@@ -622,7 +624,7 @@ function renderizarWishlist() {
     div.innerHTML = `
       <div class="wl-card-header">
         <div class="wl-titulo">${w.titulo}</div>
-        <button class="wl-delete" title="Eliminar" onclick="eliminarWishlistItem(${w.id})">\u{1F5D1}</button>
+        <button class="wl-delete" title="Eliminar" onclick="eliminarWishlistItem(${w.id})">&times;</button>
       </div>
       <span class="wl-badge prioridad-badge-${w.prioridad}">${prioLabel[w.prioridad] || w.prioridad}</span>
       <div class="wl-meta">${plat} \u00B7 ${cat}</div>
