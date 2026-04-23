@@ -24,3 +24,12 @@ hs_err_pid*
 replay_pid*
 .DS_Store
 .claude/
+
+# Claude Code (instrucciones locales, no para el repo)
+CLAUDE.md
+
+# Maven build output
+backend/target/
+
+# Firebase cache
+frontend/.firebase/
