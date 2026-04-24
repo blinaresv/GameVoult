@@ -80,7 +80,7 @@ Evidencias: [#16 HU-13](https://github.com/blinaresv/GameVoult/issues/16) · [#1
 
 ## Métricas del Proyecto
 
-### Resumen Ejecutivo
+### Resumen 
 
 | Métrica | Valor |
 |---------|-------|
@@ -93,31 +93,8 @@ Evidencias: [#16 HU-13](https://github.com/blinaresv/GameVoult/issues/16) · [#1
 | **Cycle Time mínimo** | 11 minutos (HU-03 Plataformas) |
 | **Cycle Time máximo** | 27h 18min (HU-16 Documentación) |
 
-### Velocity por Sprint
 
-| Sprint | Historias planificadas | Completadas | Velocidad (puntos) |
-|--------|----------------------|-------------|-------------------|
-| Sprint 1 | 7 | 7 | 25 pts |
-| Sprint 2 | 7 | 7 | 21 pts |
-| Sprint 3 | 5 | 5 | 18 pts |
-| **Total** | **19** | **19** | **64 pts** |
 
-### Throughput
-
-| Periodo | Historias entregadas |
-|---------|---------------------|
-| Sprint 1 | 7 historias |
-| Sprint 2 | 7 historias |
-| Sprint 3 | 5 historias |
-| **Promedio** | **6.3 historias/sprint** |
-
-### Burndown (trabajo restante por sprint)
-
-| Sprint | Inicio | Mitad | Fin |
-|--------|--------|-------|-----|
-| Sprint 1 | 7 historias | ~4 restantes | 0 restantes |
-| Sprint 2 | 7 historias | ~4 restantes | 0 restantes |
-| Sprint 3 | 5 historias | ~2 restantes | 0 restantes |
 
 ### Lead Time
 
