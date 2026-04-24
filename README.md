@@ -15,7 +15,7 @@
 
 ## Descripción del Proyecto
 
-**GameVault** es una aplicación web para gestionar tu biblioteca de videojuegos personales, desplegada íntegramente en Google Cloud Platform. Permite registrar juegos, organizarlos por categoría y plataforma, llevar un seguimiento por estado (PENDIENTE, JUGANDO, TERMINADO, FAVORITO), escribir reseñas con puntuación y mantener una wishlist priorizada.
+**GameVault** es una aplicación web para gestionar tu biblioteca de videojuegos personales, desplegada íntegramente en Google Cloud Platform, permite registrar juegos, organizarlos por categoría y plataforma, llevar un seguimiento por estado (PENDIENTE, JUGANDO, TERMINADO, FAVORITO), escribir reseñas con puntuación y mantener una wishlist priorizada.
 
 ---
 
@@ -209,7 +209,7 @@ Abrir el archivo `frontend/index.html` en cualquier navegador.
 
 - **Los conflictos de merge en archivos grandes son riesgosos**: el conflicto en `index.html` resultó en el contenido de `app.js` sobreescribiendo el HTML, corrompiendo el archivo por completo. Desde entonces aplicamos la práctica de hacer `git pull` antes de empezar cualquier cambio y resolver conflictos archivo por archivo con revisión cuidadosa.
 
-- **Encoding desde el principio**: los emojis en `app.js` funcionaban localmente pero fallaban en el build de Docker porque el contenedor Alpine no tenía el mismo locale. Definir `charset=UTF-8` en el HTML y usar escapes Unicode en JS elimina la dependencia del entorno.
+
 
 ---
 
@@ -419,9 +419,6 @@ Se configuró un trigger que al hacer `git push` a `main`:
 * Causa: merge entre ramas resultó en el contenido de `app.js` dentro de `index.html`
 * Solución: restaurar el archivo desde el historial de git
 
-**Problema 8: Emojis y caracteres UTF-8 en `app.js`**
-* Causa: encoding del archivo causaba caracteres corruptos en entornos Alpine
-* Solución: reemplazar emojis por escapes Unicode y agregar `charset=UTF-8` en el `<script>` tag
 
 ---
 
