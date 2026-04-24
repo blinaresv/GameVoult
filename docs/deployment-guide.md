@@ -1,12 +1,12 @@
 # Guía de Despliegue
 
-## Game List Cloud
+## GameVoult — Gestor de Videojuegos
 
 ---
 
 # 1. Introducción
 
-Esta guía describe el proceso completo de despliegue de la aplicación **Game List Cloud** en Google Cloud Platform, incluyendo la configuración de la base de datos, el backend, el frontend y la integración continua mediante GitHub.
+Esta guía describe el proceso completo de despliegue de **GameVoult** en Google Cloud Platform, incluyendo la configuración de la base de datos, el backend, el frontend y la integración continua mediante Cloud Build.
 
 El objetivo es garantizar que cualquier persona pueda replicar el despliegue siguiendo estos pasos.
 
@@ -14,17 +14,25 @@ El objetivo es garantizar que cualquier persona pueda replicar el despliegue sig
 
 # 2. Arquitectura de Despliegue
 
-El sistema se compone de tres servicios principales:
-
-* **Frontend:** Firebase Hosting
-* **Backend:** Cloud Run (contenedor Docker)
-* **Base de datos:** Cloud SQL (PostgreSQL)
-
-Flujo:
+El sistema usa una arquitectura **unificada**: el frontend (HTML/CSS/JS) está empaquetado dentro de la imagen Docker junto con el backend (Spring Boot). Cloud Run sirve ambos desde el mismo contenedor.
 
 ```
-Usuario → Frontend → Backend → Base de datos
+Usuario → Cloud Run (Spring Boot)
+               ├── /          → Frontend (recursos estáticos)
+               └── /api/      → Backend (REST API)
+                      └── Cloud SQL (PostgreSQL)
 ```
+
+**Servicios GCP:**
+
+| Servicio | Nombre | Región |
+|---|---|---|
+| Cloud Run | `gamevoult` | us-central1 |
+| Cloud SQL | `gamevoult-db` | us-central1 |
+| Artifact Registry | `cloud-run-source-deploy` | us-central1 |
+| Proyecto GCP | `game-list-cloud-493923` | — |
+
+> Firebase Hosting **no se usa** en este proyecto. El frontend se sirve directamente desde Cloud Run.
 
 ---
 
@@ -36,39 +44,72 @@ Usuario → Frontend → Backend → Base de datos
 
 1. Ingresar a Google Cloud Console
 2. Ir a **Cloud SQL**
-3. Crear nueva instancia PostgreSQL
-4. Configurar:
-
-   * Nombre: gamelist-db
-   * Versión: PostgreSQL
-   * Región: us-central1
+3. Crear nueva instancia PostgreSQL:
+   - Nombre: `gamevoult-db`
+   - Versión: PostgreSQL 15
+   - Región: `us-central1`
+   - Connection name: `game-list-cloud-493923:us-central1:gamevoult-db`
 
 ---
 
 ## 3.2 Configuración de acceso
 
-* Habilitar **IP pública**
-* Autorizar red (0.0.0.0/0 para pruebas o IP específica)
-* Crear usuario:
-
-  * usuario: postgres
-  * contraseña: configurada
+- Conexión via **Cloud SQL Socket Factory** (sin IP pública, sin TCP)
+- No se requiere autorizar IPs externas
+- Usuario: `postgres`
+- Contraseña: configurada como variable de entorno en Cloud Run
 
 ---
 
 ## 3.3 Creación de base de datos
 
-* Nombre: gamelist
+- Nombre: `gamelist`
 
 ---
 
 ## 3.4 Creación de tablas
 
-Se ejecutaron scripts SQL:
+Se ejecutaron los scripts en `database/schema.sql`:
 
 ```sql
-CREATE TABLE categoria (...);
-CREATE TABLE videojuego (...);
+CREATE TABLE IF NOT EXISTS categoria (
+    id      SERIAL PRIMARY KEY,
+    nombre  VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS plataforma (
+    id          SERIAL PRIMARY KEY,
+    nombre      VARCHAR(100) NOT NULL UNIQUE,
+    fabricante  VARCHAR(100)
+);
+
+CREATE TABLE IF NOT EXISTS videojuego (
+    id            SERIAL PRIMARY KEY,
+    titulo        VARCHAR(255) NOT NULL,
+    anio          INTEGER,
+    descripcion   TEXT,
+    imagen_url    VARCHAR(500),
+    estado        VARCHAR(20) NOT NULL CHECK (estado IN ('PENDIENTE','JUGANDO','TERMINADO','FAVORITO')),
+    categoria_id  INTEGER REFERENCES categoria(id),
+    plataforma_id INTEGER REFERENCES plataforma(id)
+);
+
+CREATE TABLE IF NOT EXISTS resena (
+    id            SERIAL PRIMARY KEY,
+    comentario    TEXT NOT NULL,
+    autor         VARCHAR(100) NOT NULL,
+    puntuacion    INTEGER NOT NULL CHECK (puntuacion BETWEEN 1 AND 10),
+    videojuego_id INTEGER NOT NULL REFERENCES videojuego(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS wishlist (
+    id            SERIAL PRIMARY KEY,
+    titulo        VARCHAR(255) NOT NULL,
+    prioridad     VARCHAR(10) NOT NULL CHECK (prioridad IN ('ALTA','MEDIA','BAJA')),
+    notas         TEXT,
+    plataforma_id INTEGER REFERENCES plataforma(id),
+    categoria_id  INTEGER REFERENCES categoria(id)
+);
 ```
 
 ---
@@ -79,25 +120,40 @@ CREATE TABLE videojuego (...);
 
 ## 4.1 Archivo application.properties
 
-Se configuró la conexión:
-
 ```properties
-spring.datasource.url=jdbc:postgresql://IP:5432/gamelist
-spring.datasource.username=postgres
-spring.datasource.password=******
+spring.application.name=gamelist-api
+
+# Puerto dinámico para Cloud Run
+server.port=${PORT:8080}
+
+# Cloud SQL — conexión via Socket Factory (sin TCP directo)
+spring.datasource.url=jdbc:postgresql:///gamelist?cloudSqlInstance=${INSTANCE_CONNECTION_NAME}&socketFactory=com.google.cloud.sql.postgres.SocketFactory
+spring.datasource.username=${DB_USER}
+spring.datasource.password=${DB_PASSWORD}
+
+# Pool de conexiones (máximo 2 para plan básico de Cloud SQL)
+spring.datasource.hikari.maximum-pool-size=2
+
+# JPA / Hibernate
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+
+# Swagger HTTPS en Cloud Run
+server.forward-headers-strategy=framework
 ```
+
+Las variables de entorno `DB_USER`, `DB_PASSWORD` e `INSTANCE_CONNECTION_NAME` se configuran directamente en Cloud Run (no en el código).
 
 ---
 
 ## 4.2 Validación local
 
-Antes del despliegue:
-
 ```bash
+cd backend
 mvn spring-boot:run
 ```
 
-Se verificó conexión a la base de datos y funcionamiento de endpoints.
+Para probar localmente con base de datos local, configurar un `application-local.properties` con URL JDBC tradicional.
 
 ---
 
@@ -105,30 +161,44 @@ Se verificó conexión a la base de datos y funcionamiento de endpoints.
 
 ---
 
-## 5.1 Creación del Dockerfile
+## 5.1 Dockerfile (multi-stage unificado)
 
-Se creó un archivo Dockerfile con múltiples etapas:
+El Dockerfile empaqueta frontend y backend en una sola imagen:
 
-* Etapa 1: construcción con Maven
-* Etapa 2: ejecución con Java
+```dockerfile
+# Etapa 1: Build con Maven
+FROM maven:3.9.6-eclipse-temurin-21 AS build
+WORKDIR /app
+COPY backend/pom.xml ./pom.xml
+RUN mvn dependency:go-offline -B
+COPY backend/src ./src
+# El frontend se copia a los recursos estáticos de Spring Boot
+COPY frontend/ ./src/main/resources/static/
+RUN mvn clean package -DskipTests
 
-Este proceso permite:
+# Etapa 2: Imagen de runtime liviana
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY --from=build /app/target/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
 
-* Generar el archivo `.jar`
-* Ejecutarlo dentro del contenedor
+Spring Boot sirve los archivos del frontend en `/` y la API en `/api/` automáticamente.
 
 ---
 
-## 5.2 Función del Dockerfile
+## 5.2 API_URL en el frontend
 
-El Dockerfile:
+Dado que frontend y backend comparten el mismo origen en Cloud Run, el frontend usa una URL relativa:
 
-* Define el entorno de ejecución
-* Compila el proyecto
-* Expone el puerto 8080
-* Ejecuta la aplicación
-
-Esto garantiza portabilidad y consistencia entre entornos.
+```javascript
+// En Docker/Cloud Run → ruta relativa (mismo origen)
+// En local con Live Server → URL absoluta al backend local
+const API_URL = (window.location.hostname === 'localhost' && window.location.port !== '8080')
+  ? 'http://localhost:8080/api'
+  : '/api';
+```
 
 ---
 
@@ -136,42 +206,57 @@ Esto garantiza portabilidad y consistencia entre entornos.
 
 ---
 
-## 6.1 Conexión con GitHub
+## 6.1 Flujo de despliegue
 
-Se utilizó **Developer Connect** para enlazar el repositorio:
+```
+Push a main → Cloud Build Trigger → cloudbuild.yaml → Cloud Run
+```
 
-* Se conectó GitHub con Google Cloud
-* Se seleccionó la rama `main`
+GitHub Actions en este proyecto solo notifica que el deploy fue iniciado. El CI/CD real lo ejecuta **Cloud Build** mediante un trigger configurado en GCP.
 
 ---
 
-## 6.2 Archivo de build (cloudbuild.yaml)
-
-Durante el despliegue, Google Cloud genera un archivo interno equivalente a:
+## 6.2 Archivo cloudbuild.yaml
 
 ```yaml
 steps:
+  # 1. Construir imagen Docker unificada (backend + frontend)
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'imagen', '.']
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/game-list-cloud-493923/cloud-run-source-deploy/gamevoult:$COMMIT_SHA'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/game-list-cloud-493923/cloud-run-source-deploy/gamevoult:latest'
+      - '.'
+
+  # 2. Push al Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'us-central1-docker.pkg.dev/game-list-cloud-493923/cloud-run-source-deploy/gamevoult'
+
+  # 3. Deploy a Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'services'
+      - 'update'
+      - 'gamevoult'
+      - '--image=us-central1-docker.pkg.dev/game-list-cloud-493923/cloud-run-source-deploy/gamevoult:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--add-cloudsql-instances=game-list-cloud-493923:us-central1:gamevoult-db'
+      - '--set-env-vars=DB_NAME=gamelist,DB_USER=$_DB_USER,DB_PASSWORD=$_DB_PASSWORD,INSTANCE_CONNECTION_NAME=game-list-cloud-493923:us-central1:gamevoult-db'
+      - '--quiet'
 ```
-
-Este archivo define:
-
-* Construcción del contenedor
-* Publicación en Artifact Registry
-* Despliegue en Cloud Run
 
 ---
 
-## 6.3 Activador (Trigger)
+## 6.3 Trigger de Cloud Build
 
-Se configuró un trigger automático que:
-
-* Detecta cambios en GitHub
-* Ejecuta el build automáticamente
-* Despliega la nueva versión
-
-Esto implementa un flujo de integración continua.
+El trigger está configurado en GCP para detectar cambios en la rama `main` del repositorio GitHub. Al recibir el push, ejecuta `cloudbuild.yaml` automáticamente.
 
 ---
 
@@ -179,156 +264,104 @@ Esto implementa un flujo de integración continua.
 
 ---
 
-## 7.1 Creación del servicio
+## 7.1 Servicio
 
-1. Ir a Cloud Run
-2. Crear servicio
-3. Seleccionar repositorio conectado
+- Nombre: `gamevoult`
+- Región: `us-central1`
+- Puerto: `8080`
+- Acceso: público (sin autenticación)
+- Escalado automático habilitado
 
 ---
 
-## 7.2 Configuración
+## 7.2 Variables de entorno en Cloud Run
 
-* Puerto: 8080
-* Acceso: público
-* Región: us-central1
-* Escalado automático habilitado
+| Variable | Valor |
+|---|---|
+| `DB_NAME` | `gamelist` |
+| `DB_USER` | `postgres` |
+| `DB_PASSWORD` | (valor seguro en Cloud Run) |
+| `INSTANCE_CONNECTION_NAME` | `game-list-cloud-493923:us-central1:gamevoult-db` |
 
 ---
 
 ## 7.3 Proceso de despliegue
 
-Cloud Run ejecuta:
-
-1. Clona el repositorio
-2. Ejecuta Cloud Build
-3. Construye la imagen Docker
-4. Despliega el contenedor
-
----
-
-## 7.4 Resultado
-
-Se obtiene una URL pública:
-
-```bash
-https://game-list-api-rjqftd4irq-uc.a.run.app
-```
+1. Push a `main` en GitHub
+2. Cloud Build Trigger detecta el cambio
+3. Ejecuta `cloudbuild.yaml`:
+   - Construye la imagen Docker (frontend + backend juntos)
+   - Publica la imagen en Artifact Registry con tag `$COMMIT_SHA` y `latest`
+   - Actualiza el servicio Cloud Run con la nueva imagen
+4. Cloud Run reemplaza el contenedor sin downtime
 
 ---
 
-# 8. Despliegue del Frontend (Firebase)
+# 8. Problemas Encontrados
 
 ---
 
-## 8.1 Inicialización
+## Problema 1: JAR no encontrado en Docker
 
-```bash
-firebase init
-```
-
----
-
-## 8.2 Configuración
-
-* Carpeta pública: frontend
-* Hosting habilitado
+- **Causa:** ruta del `.jar` incorrecta en el Dockerfile
+- **Solución:** uso de `COPY --from=build /app/target/*.jar app.jar` con wildcard
 
 ---
 
-## 8.3 Despliegue
+## Problema 2: Conexión a Cloud SQL fallida
 
-```bash
-firebase deploy
-```
-
----
-
-## 8.4 Resultado
-
-```bash
-https://game-list-cloud-bcc6c.web.app
-```
-
----
-
-# 9. Integración Frontend – Backend
-
-Se configuró el frontend para consumir la API:
-
-```javascript
-const API_URL = "https://game-list-api-rjqftd4irq-uc.a.run.app";
-```
-
-Esto permite que las peticiones HTTP se realicen al backend desplegado.
-
----
-
-# 10. Problemas Encontrados
-
----
-
-## Problema 1: Error en Docker
-
-* Causa: archivo `.jar` no encontrado
-* Solución: uso de build con Maven en Docker
-
----
-
-## Problema 2: Conexión a Cloud SQL
-
-* Causa: IP bloqueada
-* Solución: habilitar acceso
+- **Causa:** intentar conexión TCP directa; Cloud SQL bloqueaba la IP
+- **Solución:** migrar a Cloud SQL Socket Factory (sin IP, sin TCP)
 
 ---
 
 ## Problema 3: CORS
 
-* Causa: frontend y backend en dominios distintos
-* Solución: configuración en Spring Boot
+- **Causa:** frontend y backend en orígenes distintos durante desarrollo local
+- **Solución:** `allowedOrigins("*")` en `AppConfig.java`; en producción no hay CORS porque comparten origen
 
 ---
 
-## Problema 4: Conflictos en Git
+## Problema 4: Swagger con URLs HTTP en Cloud Run
 
-* Causa: archivos `.DS_Store`
-* Solución: uso de `.gitignore`
+- **Causa:** Cloud Run recibe tráfico HTTP internamente aunque externamente sea HTTPS
+- **Solución:** `server.forward-headers-strategy=framework` en `application.properties`
 
 ---
 
-# 11. Validación del Sistema
+## Problema 5: Archivos `.DS_Store` en git
+
+- **Causa:** macOS genera este archivo automáticamente
+- **Solución:** agregado a `.gitignore`
+
+---
+
+# 9. Validación del Sistema
 
 Se realizaron pruebas mediante:
 
-* Swagger
-* Postman
-* Frontend
+- **Swagger UI** — verificación de endpoints REST
+- **Frontend** — flujo completo de CRUD de videojuegos, reseñas y wishlist
 
 Se verificó:
 
-* CRUD completo
-* Conexión con base de datos
-* Persistencia de datos
+- CRUD completo de videojuegos, categorías, plataformas, reseñas y wishlist
+- Conexión a Cloud SQL via Socket Factory
+- Persistencia de datos entre reinicios del contenedor
+- Frontend servido correctamente desde Spring Boot
 
 ---
 
-# 12. URLs Finales
+# 10. URLs Finales
 
-Frontend:
-https://game-list-cloud-bcc6c.web.app
-
-Backend:
-https://game-list-api-rjqftd4irq-uc.a.run.app
-
-Swagger:
-https://game-list-api-rjqftd4irq-uc.a.run.app/swagger-ui/index.html
+| Recurso | URL |
+|---|---|
+| Aplicación (frontend + API) | https://gamevoult-289395988346.us-central1.run.app |
+| Swagger UI | https://gamevoult-289395988346.us-central1.run.app/swagger-ui/index.html |
+| API docs | https://gamevoult-289395988346.us-central1.run.app/v3/api-docs |
 
 ---
 
-# 13. Conclusión
+# 11. Conclusión
 
-El despliegue del sistema demuestra la implementación de una arquitectura moderna basada en servicios cloud, logrando automatización, escalabilidad y disponibilidad.
-
-Se integraron correctamente herramientas de desarrollo, contenedorización y despliegue continuo, garantizando un sistema funcional en producción.
-
----
+GameVoult implementa una arquitectura cloud unificada: frontend y backend conviven en un solo contenedor Docker desplegado en Cloud Run, conectado a Cloud SQL mediante Socket Factory. El CI/CD via Cloud Build automatiza el build y despliegue con cada push a `main`, garantizando entregas consistentes sin intervención manual.
