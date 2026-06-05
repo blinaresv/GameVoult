@@ -5,7 +5,7 @@
 ### 1. Endpoints de escritura sin autenticacion
 Antes del Proyecto 3, los endpoints `POST`, `PUT` y `DELETE` de videojuegos, categorias, plataformas, resenas y wishlist podian ejecutarse sin ningun mecanismo de autenticacion. Esto permitia que cualquier persona con acceso a la API pudiera crear, modificar o eliminar datos.
 
-**Medida implementada:** se agrego login y registro de usuarios mediante `/api/auth/login` y `/api/auth/register`. El frontend muestra una pantalla de inicio de sesion, permite crear cuenta y envia `Authorization: Bearer <token>` en operaciones de escritura. Tambien se conserva `X-API-Key` como mecanismo de respaldo para scripts de prueba. Las operaciones de lectura siguen publicas, pero los metodos de escritura sobre `/api/**` requieren token o clave valida.
+**Medida implementada:** se agrego login y registro de usuarios mediante `/api/auth/login` y `/api/auth/register`. El frontend muestra una pantalla de inicio de sesion, permite crear cuenta y envia `Authorization: Bearer <token>` en todas las peticiones. El acceso quedo dividido en dos niveles: los recursos por usuario (`/api/videojuegos`, `/api/wishlist`, `/api/resenas`) exigen token de usuario valido tanto para leer como para escribir, y solo devuelven los datos de ese usuario; los recursos compartidos (`/api/categorias`, `/api/plataformas`) permiten lectura publica y exigen token o `X-API-Key` solo para escribir. La `X-API-Key` se conserva como mecanismo de respaldo para scripts tecnicos y no da acceso a los datos por usuario.
 
 **Medida pendiente:** migrar el token firmado local a JWT formal o sesiones revocables, agregar expiracion configurable por usuario y definir permisos distintos para `ADMIN` y `USER` por endpoint.
 
@@ -34,7 +34,7 @@ La configuracion actual permite origenes amplios para facilitar pruebas del fron
 
 - Login de usuarios con `/api/auth/login` y registro con `/api/auth/register`.
 - Tabla `usuario_app` con roles `ADMIN` y `USER`, contrasenas protegidas con PBKDF2 y tokens firmados con expiracion.
-- Filtro `ApiKeyAuthFilter` para proteger metodos `POST`, `PUT`, `PATCH` y `DELETE` sobre `/api/**` usando token Bearer o API Key.
+- Filtro `ApiKeyAuthFilter` que exige token Bearer para leer y escribir los recursos por usuario, y token o API Key para escribir los recursos compartidos (`POST`, `PUT`, `PATCH`, `DELETE`).
 - Endpoint `/metrics` con Actuator y Micrometer para exponer metricas a Prometheus.
 - Metricas propias: contador de requests, latencia de requests y gauge de videojuegos registrados.
 - Docker Compose con PostgreSQL, backend, Prometheus y Grafana.
