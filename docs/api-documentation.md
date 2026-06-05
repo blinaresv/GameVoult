@@ -8,7 +8,7 @@
 
 La API de GameVault es un servicio REST desarrollado con Spring Boot 3.2 (Java 21) que permite gestionar videojuegos, categorías, plataformas, reseñas y wishlist mediante operaciones CRUD.
 
-La API se conecta a PostgreSQL en Cloud SQL y es consumida por el frontend servido desde el mismo contenedor en Cloud Run.
+La API se conecta a PostgreSQL en Cloud SQL y es consumida por el frontend servido desde el mismo contenedor en Cloud Run. A partir del Proyecto 3 incluye autenticación de usuarios, protección de escritura por API Key, exportación de datos a CSV y métricas para monitoreo con Prometheus y Grafana.
 
 ---
 
@@ -18,11 +18,87 @@ La API se conecta a PostgreSQL en Cloud SQL y es consumida por el frontend servi
 https://game-list-api-rjqftd4irq-uc.a.run.app
 ```
 
-Todos los endpoints están bajo el prefijo `/api`.
+Todos los endpoints de negocio están bajo el prefijo `/api`. El endpoint de métricas (`/metrics`) queda fuera de ese prefijo.
 
 ---
 
-# 3. Modelos de Datos
+# 3. Autenticación y Seguridad
+
+La API protege los datos por usuario y las operaciones de escritura sobre recursos compartidos. Existen dos mecanismos de credenciales:
+
+- **Token de sesión (Bearer):** se obtiene en `/api/auth/login` o `/api/auth/register` y se envía en la cabecera `Authorization: Bearer <token>`.
+- **API Key:** clave técnica de respaldo que se envía en la cabecera `X-API-Key`. Solo habilita escrituras sobre recursos compartidos; no da acceso a los datos por usuario.
+
+## Reglas de acceso
+
+| Recurso | Lectura | Escritura (POST/PUT/PATCH/DELETE) |
+|---------|---------|-----------------------------------|
+| `/api/auth/**` | Pública | Pública |
+| `/api/videojuegos`, `/api/wishlist`, `/api/resenas` | Token de usuario | Token de usuario |
+| `/api/categorias`, `/api/plataformas` | Pública | Token de usuario o `X-API-Key` |
+
+Los recursos por usuario (`videojuegos`, `wishlist`, `resenas`) solo devuelven y modifican los datos del usuario autenticado. Una petición sin credencial válida sobre un recurso protegido retorna **401**.
+
+## POST /api/auth/register
+
+Registra un nuevo usuario con rol `USER`.
+
+**Request Body:**
+```json
+{
+  "username": "brandon",
+  "password": "secreto123",
+  "displayName": "Brandon"
+}
+```
+
+**Validaciones:**
+- `username`: obligatorio, 3 a 30 caracteres (`A-Z a-z 0-9 _ . -`)
+- `password`: obligatorio, entre 6 y 80 caracteres
+- `displayName`: opcional; si se omite se usa el `username`
+
+**Response 201 Created:**
+```json
+{
+  "token": "YWRtaW58QURNSU4...",
+  "username": "brandon",
+  "displayName": "Brandon",
+  "role": "USER",
+  "expiresAt": "2026-06-05T13:01:37Z"
+}
+```
+
+**Error 409 Conflict** si el `username` ya existe.
+**Error 400** si falla alguna validación.
+
+## POST /api/auth/login
+
+Autentica un usuario y devuelve un token de sesión.
+
+**Request Body:**
+```json
+{
+  "username": "admin",
+  "password": "admin123"
+}
+```
+
+**Response 200 OK:** mismo formato que `register` (`token`, `username`, `displayName`, `role`, `expiresAt`).
+
+**Error 401** si el usuario o la contraseña son inválidos.
+**Error 400** si falta el usuario o la contraseña.
+
+## Uso del token
+
+```
+Authorization: Bearer <token>
+```
+
+El token expira según `expiresAt`. Cuando expira o es inválido, los endpoints protegidos responden 401 y el frontend redirige al login.
+
+---
+
+# 4. Modelos de Datos
 
 ## Videojuego
 
@@ -114,11 +190,27 @@ Todos los endpoints están bajo el prefijo `/api`.
 
 ---
 
-# 4. Endpoints de Videojuegos
+## Usuario
+
+```json
+{
+  "username": "brandon",
+  "displayName": "Brandon",
+  "role": "USER"
+}
+```
+
+**Roles válidos:** `ADMIN` | `USER`. La contraseña se almacena hasheada y nunca se devuelve en las respuestas.
+
+---
+
+# 5. Endpoints de Videojuegos
+
+> Recurso por usuario: todas las operaciones requieren token de usuario y operan solo sobre los videojuegos del usuario autenticado.
 
 ## GET /api/videojuegos
 
-Obtiene todos los videojuegos. Soporta filtros opcionales combinables.
+Obtiene los videojuegos del usuario. Soporta filtros opcionales combinables.
 
 **Query params opcionales:**
 
@@ -157,7 +249,7 @@ GET /api/videojuegos?plataformaId=1&estado=TERMINADO
 
 ## GET /api/videojuegos/estadisticas
 
-Retorna el conteo de videojuegos agrupado por estado.
+Retorna el conteo de videojuegos del usuario agrupado por estado.
 
 **Response 200 OK:**
 ```json
@@ -172,9 +264,29 @@ Retorna el conteo de videojuegos agrupado por estado.
 
 ---
 
+## GET /api/videojuegos/export/csv
+
+Exporta los videojuegos del usuario autenticado en formato CSV. Acepta los mismos filtros que `GET /api/videojuegos`, por lo que se puede exportar una búsqueda concreta.
+
+**Query params opcionales:** `titulo`, `estado`, `categoriaId`, `plataformaId` (idénticos al listado).
+
+**Response 200 OK:**
+- `Content-Type: text/csv; charset=UTF-8`
+- `Content-Disposition: attachment; filename=videojuegos.csv`
+
+```
+id,titulo,anio,estado,categoria,plataforma,descripcion
+1,The Witcher 3,2015,JUGANDO,RPG,PC,RPG de mundo abierto.
+2,God of War,2018,TERMINADO,Acción,PlayStation 4,Aventura mitológica.
+```
+
+Requiere token de usuario. El frontend incluye un botón **Exportar CSV** que descarga este archivo.
+
+---
+
 ## GET /api/videojuegos/{id}
 
-Obtiene un videojuego por su ID.
+Obtiene un videojuego del usuario por su ID.
 
 **Response 200 OK:** objeto Videojuego completo.
 
@@ -208,7 +320,7 @@ Retorna la categoría asignada al videojuego.
 
 ## POST /api/videojuegos
 
-Crea un nuevo videojuego.
+Crea un nuevo videojuego para el usuario autenticado.
 
 **Request Body:**
 ```json
@@ -265,7 +377,7 @@ Elimina un videojuego y sus reseñas asociadas (cascade).
 
 ---
 
-# 5. Endpoints de Categorías
+# 6. Endpoints de Categorías
 
 ## GET /api/categorias
 
@@ -289,7 +401,7 @@ Retorna una categoría por ID.
 
 ## POST /api/categorias
 
-Crea una nueva categoría. El nombre debe ser único (insensible a mayúsculas).
+Crea una nueva categoría. El nombre debe ser único (insensible a mayúsculas). Requiere token de usuario o `X-API-Key`.
 
 **Request Body:**
 ```json
@@ -332,7 +444,7 @@ Elimina una categoría.
 
 ---
 
-# 6. Endpoints de Plataformas
+# 7. Endpoints de Plataformas
 
 ## GET /api/plataformas
 
@@ -357,7 +469,7 @@ Retorna una plataforma por ID.
 
 ## POST /api/plataformas
 
-Crea una nueva plataforma. El nombre debe ser único.
+Crea una nueva plataforma. El nombre debe ser único. Requiere token de usuario o `X-API-Key`.
 
 **Request Body:**
 ```json
@@ -399,11 +511,13 @@ Elimina una plataforma.
 
 ---
 
-# 7. Endpoints de Reseñas
+# 8. Endpoints de Reseñas
+
+> Recurso por usuario: las reseñas se asocian a videojuegos del usuario autenticado.
 
 ## GET /api/resenas/videojuego/{videojuegoId}
 
-Retorna todas las reseñas de un videojuego específico.
+Retorna todas las reseñas de un videojuego específico del usuario.
 
 **Response 200 OK:**
 ```json
@@ -424,7 +538,7 @@ Retorna todas las reseñas de un videojuego específico.
 
 ## POST /api/resenas
 
-Crea una reseña vinculada a un videojuego existente.
+Crea una reseña vinculada a un videojuego existente del usuario.
 
 **Request Body:**
 ```json
@@ -460,11 +574,13 @@ Elimina una reseña por ID.
 
 ---
 
-# 8. Endpoints de Wishlist
+# 9. Endpoints de Wishlist
+
+> Recurso por usuario: todas las operaciones requieren token de usuario y operan solo sobre la wishlist del usuario autenticado.
 
 ## GET /api/wishlist
 
-Retorna los items de la wishlist. Soporta filtros opcionales.
+Retorna los items de la wishlist del usuario. Soporta filtros opcionales.
 
 **Query params opcionales:**
 
@@ -550,7 +666,27 @@ Elimina un item de la wishlist.
 
 ---
 
-# 9. Manejo de Errores
+# 10. Monitoreo y Métricas
+
+La API expone métricas en formato Prometheus para observar throughput, latencia y estado general del sistema.
+
+## GET /metrics
+
+Endpoint público (fuera del prefijo `/api`) con las métricas en formato Prometheus. Lo consume el servicio de Prometheus definido en `docker-compose.yml`.
+
+**Métricas destacadas:**
+
+| Métrica | Tipo | Descripción |
+|---------|------|-------------|
+| `gamevault_videojuegos_total` | gauge | Total de videojuegos registrados |
+| `gamevault_api_request_latency_seconds` | histogram | Latencia de las peticiones de la API (con buckets para p95/p99) |
+| `http_server_requests_seconds` | histogram | Métricas estándar de Spring Actuator |
+
+El stack de observabilidad (Prometheus + Grafana) se levanta con Docker Compose. Grafana incluye el dashboard **GameVault Observabilidad** con paneles de throughput, latencia y un gauge. Los puertos y credenciales locales están documentados en el `README.md`.
+
+---
+
+# 11. Manejo de Errores
 
 Todos los errores siguen esta estructura JSON:
 
@@ -567,13 +703,14 @@ Todos los errores siguen esta estructura JSON:
 | Código | Causa |
 |--------|-------|
 | 400 | Validación fallida (campo vacío, rango inválido, etc.) |
+| 401 | No autenticado — falta un token de usuario válido o la API Key en una operación protegida |
 | 404 | Recurso no encontrado |
-| 409 | Conflicto — nombre duplicado en categoría o plataforma |
+| 409 | Conflicto — nombre duplicado en categoría o plataforma, o usuario ya existente |
 | 500 | Error interno del servidor |
 
 ---
 
-# 10. Swagger UI
+# 12. Swagger UI
 
 Documentación interactiva disponible en producción:
 
@@ -585,9 +722,12 @@ Permite ejecutar peticiones directamente desde el navegador.
 
 ---
 
-# 11. Pruebas Realizadas
+# 13. Pruebas Realizadas
 
 - Swagger UI (producción)
 - Postman (colección manual por endpoint)
 - Frontend integrado en Cloud Run
+- Pruebas automatizadas del backend (`mvn test`)
 - Capturas en [docs/screenshot/](screenshot/)
+</content>
+</invoke>
