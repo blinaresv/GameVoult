@@ -4,6 +4,98 @@ const API_URL = (window.location.hostname === 'localhost' && window.location.por
   ? 'http://localhost:8080/api'
   : '/api';
 
+const DEFAULT_API_KEY = "dev-gamevault-key";
+const ADMIN_SESSION_KEY = "gamevaultUserSession";
+const LEGACY_ADMIN_SESSION_KEY = "gamevaultAdminSession";
+
+function getAdminSession() {
+  try {
+    const session = JSON.parse(localStorage.getItem(ADMIN_SESSION_KEY));
+    if (session?.expiresAt && new Date(session.expiresAt) <= new Date()) {
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+      return null;
+    }
+    return session;
+  } catch (_) {
+    return null;
+  }
+}
+
+function getApiKey() {
+  return localStorage.getItem("gamevaultApiKey") || DEFAULT_API_KEY;
+}
+
+function authHeaders() {
+  const session = getAdminSession();
+  if (session?.token) {
+    return { "Authorization": `Bearer ${session.token}` };
+  }
+  return { "X-API-Key": getApiKey() };
+}
+
+function jsonAuthHeaders() {
+  return { "Content-Type": "application/json", ...authHeaders() };
+}
+
+// ── Notificaciones (toasts) ──
+// Reemplazan los fallos silenciosos: toda operación que termina (o falla)
+// avisa al usuario en pantalla en vez de no hacer nada.
+function notify(mensaje, tipo = "info") {
+  let cont = document.getElementById("toast-container");
+  if (!cont) {
+    cont = document.createElement("div");
+    cont.id = "toast-container";
+    document.body.appendChild(cont);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast toast--${tipo}`;
+  toast.setAttribute("role", "status");
+  toast.textContent = mensaje;
+  cont.appendChild(toast);
+
+  // Forzar reflow para que la transición de entrada se aplique.
+  requestAnimationFrame(() => toast.classList.add("toast--visible"));
+
+  setTimeout(() => {
+    toast.classList.remove("toast--visible");
+    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+  }, 3500);
+}
+
+// ── Wrapper de fetch ──
+// Centraliza el manejo de errores: lanza una excepción con un mensaje legible
+// cuando la respuesta no es OK (incluyendo el 401 por API Key) o si falla la red.
+async function request(url, options = {}) {
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch (_networkError) {
+    throw new Error("No se pudo conectar con el servidor. Verifica tu conexión.");
+  }
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      // Token ausente, expirado o invalido: la sesion ya no sirve. Salvo en el
+      // propio endpoint de login (donde 401 = credenciales incorrectas), se limpia
+      // la sesion y se devuelve al usuario a la pantalla de acceso en vez de
+      // dejar la vista atascada con el error.
+      if (!url.includes("/auth/")) {
+        localStorage.removeItem(ADMIN_SESSION_KEY);
+        if (typeof mostrarLogin === "function") mostrarLogin();
+        throw new Error("Tu sesion expiro o no es valida. Inicia sesion de nuevo.");
+      }
+      throw new Error("Usuario o contrasena incorrectos.");
+    }
+    let mensaje = `Error ${res.status} al procesar la solicitud.`;
+    try {
+      const data = await res.json();
+      if (data && data.error) mensaje = data.error;
+    } catch (_) { /* la respuesta puede no traer cuerpo JSON */ }
+    throw new Error(mensaje);
+  }
+  return res;
+}
+
 const ICON_CONTROLLER = '<svg class="placeholder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="13" rx="5"/><path d="M8 12h2m-1-1v2M15 13h.01M17 13h.01"/></svg>';
 
 let videojuegos    = [];
@@ -51,14 +143,53 @@ const imagenPreviewPlaceholder = document.getElementById("imagen-preview-placeho
 const modalWishlist  = document.getElementById("modal-wishlist");
 const formWishlist   = document.getElementById("form-wishlist");
 
+const loginScreen    = document.getElementById("login-screen");
+const loginForm      = document.getElementById("login-form");
+const loginError     = document.getElementById("login-error");
+const loginTitle     = document.getElementById("login-title");
+const loginToggle    = document.getElementById("login-toggle");
+const loginRegisterFields = document.getElementById("login-register-fields");
+const adminSessionEl = document.getElementById("admin-session");
+const adminUserLabel = document.getElementById("admin-user-label");
+const logoutBtn      = document.getElementById("btn-logout");
+
+// ── Auth: nuevos elementos (registro profesional) ──
+const authSubtitle      = document.getElementById("auth-subtitle");
+const authSwitchText    = document.getElementById("auth-switch-text");
+const authSubmit        = document.getElementById("auth-submit");
+const authSubmitLabel   = authSubmit.querySelector(".auth-submit-label");
+const tabLogin          = document.getElementById("tab-login");
+const tabRegister       = document.getElementById("tab-register");
+const inputUsername     = document.getElementById("login-username");
+const inputPassword     = document.getElementById("login-password");
+const inputDisplayName  = document.getElementById("login-display-name");
+const inputConfirm      = document.getElementById("login-password-confirm");
+const confirmField      = document.getElementById("confirm-field");
+const togglePasswordBtn = document.getElementById("toggle-password");
+const authStrength      = document.getElementById("auth-strength");
+const authStrengthLabel = document.getElementById("auth-strength-label");
+const authCaps          = document.getElementById("auth-caps");
+
+// Reglas de validación (deben coincidir con el backend AuthController)
+const USERNAME_REGEX = /^[A-Za-z0-9_.-]{3,30}$/;
+const PASSWORD_MIN = 6;
+const PASSWORD_MAX = 80;
+
+let authMode = "login";
+
 // ════════════════════════════════════════════════════════
 //  INICIALIZACIÓN
 // ════════════════════════════════════════════════════════
 
 document.addEventListener("DOMContentLoaded", async () => {
-  await Promise.all([cargarCategorias(), cargarPlataformas()]);
-  await cargarVideojuegos();
-  await cargarEstadisticas();
+  localStorage.removeItem(LEGACY_ADMIN_SESSION_KEY);
+  configurarLogin();
+  if (!getAdminSession()) {
+    mostrarLogin();
+  } else {
+    mostrarAppAutenticada();
+    await cargarDatosIniciales();
+  }
 
   // Navegación por tabs
   document.querySelectorAll(".nav-tab").forEach(tab => {
@@ -77,6 +208,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Formulario toggle
   document.getElementById("btn-abrir-formulario").addEventListener("click", abrirFormulario);
+  document.getElementById("btn-exportar-csv").addEventListener("click", exportarCsv);
   document.getElementById("reload-btn").addEventListener("click", cargarVideojuegos);
   document.getElementById("cancel-btn").addEventListener("click", () => {
     if (editandoId && !confirm("\u00BFDescartar los cambios de edici\u00F3n?")) return;
@@ -110,7 +242,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
   document.getElementById("detalle-btn-eliminar").addEventListener("click", async () => {
     if (!confirm("\u00BFEliminar este juego?")) return;
-    await fetch(`${API_URL}/videojuegos/${detalleJuegoId}`, { method: "DELETE" });
+    try {
+      await request(`${API_URL}/videojuegos/${detalleJuegoId}`, { method: "DELETE", headers: authHeaders() });
+    } catch (e) {
+      notify(`No se pudo eliminar el juego: ${e.message}`, "error");
+      return;
+    }
+    notify("Juego eliminado.", "success");
     mostrarBiblioteca();
     await cargarVideojuegos();
   });
@@ -152,6 +290,263 @@ document.addEventListener("DOMContentLoaded", async () => {
   form.addEventListener("submit", guardarVideojuego);
 });
 
+async function cargarDatosIniciales() {
+  await Promise.all([cargarCategorias(), cargarPlataformas()]);
+  await cargarVideojuegos();
+  await cargarEstadisticas();
+}
+
+function configurarLogin() {
+  loginForm.addEventListener("submit", enviarFormularioAuth);
+  loginToggle.addEventListener("click", alternarModoAuth);
+  tabLogin.addEventListener("click", () => cambiarModoAuth("login"));
+  tabRegister.addEventListener("click", () => cambiarModoAuth("register"));
+  logoutBtn.addEventListener("click", cerrarSesionAdmin);
+
+  // Mostrar / ocultar contraseña
+  togglePasswordBtn.addEventListener("click", alternarVisibilidadPassword);
+
+  // Validación en vivo (solo limpia errores y refresca la fuerza al escribir)
+  inputUsername.addEventListener("input", () => limpiarErrorCampo(inputUsername));
+  inputDisplayName.addEventListener("input", () => limpiarErrorCampo(inputDisplayName));
+  inputConfirm.addEventListener("input", () => limpiarErrorCampo(inputConfirm));
+  inputPassword.addEventListener("input", () => {
+    limpiarErrorCampo(inputPassword);
+    if (authMode === "register") actualizarFuerzaPassword();
+  });
+
+  // Aviso de Bloq Mayús en los campos de contraseña
+  [inputPassword, inputConfirm].forEach(el => {
+    el.addEventListener("keyup", detectarBloqMayus);
+    el.addEventListener("blur", () => authCaps.hidden = true);
+  });
+
+  actualizarModoAuth();
+}
+
+function detectarBloqMayus(e) {
+  const activo = typeof e.getModifierState === "function" && e.getModifierState("CapsLock");
+  authCaps.hidden = !activo;
+}
+
+function mostrarLogin() {
+  document.body.classList.add("auth-locked");
+  loginScreen.style.display = "grid";
+  adminSessionEl.style.display = "none";
+  loginError.textContent = "";
+  authCaps.hidden = true;
+  ocultarPassword();
+  [inputUsername, inputPassword, inputDisplayName, inputConfirm].forEach(limpiarErrorCampo);
+}
+
+function mostrarAppAutenticada() {
+  const session = getAdminSession();
+  document.body.classList.remove("auth-locked");
+  loginScreen.style.display = "none";
+  adminSessionEl.style.display = "flex";
+  const role = session?.role === "ADMIN" ? "Admin" : "Usuario";
+  const name = session?.displayName || session?.username || "Usuario";
+  adminUserLabel.textContent = `${role}: ${name}`;
+}
+
+function alternarModoAuth() {
+  cambiarModoAuth(authMode === "login" ? "register" : "login");
+}
+
+function cambiarModoAuth(modo) {
+  if (modo === authMode) return;
+  authMode = modo;
+  loginError.textContent = "";
+  authCaps.hidden = true;
+  ocultarPassword();
+  [inputUsername, inputPassword, inputDisplayName, inputConfirm].forEach(limpiarErrorCampo);
+  actualizarModoAuth();
+
+  // Lleva el foco al primer campo relevante del nuevo modo.
+  const primero = modo === "register" ? inputDisplayName : inputUsername;
+  requestAnimationFrame(() => primero.focus());
+}
+
+function actualizarModoAuth() {
+  const creandoCuenta = authMode === "register";
+
+  loginTitle.textContent   = creandoCuenta ? "Crea tu cuenta" : "Bienvenido de nuevo";
+  authSubtitle.textContent = creandoCuenta
+    ? "Empieza a organizar tu colección en segundos."
+    : "Inicia sesión para acceder a tu biblioteca.";
+
+  tabLogin.classList.toggle("active", !creandoCuenta);
+  tabRegister.classList.toggle("active", creandoCuenta);
+  tabLogin.setAttribute("aria-selected", String(!creandoCuenta));
+  tabRegister.setAttribute("aria-selected", String(creandoCuenta));
+
+  loginRegisterFields.style.display = creandoCuenta ? "block" : "none";
+  confirmField.style.display        = creandoCuenta ? "block" : "none";
+  authStrength.style.display        = creandoCuenta ? "block" : "none";
+
+  authSubmitLabel.textContent = creandoCuenta ? "Crear cuenta" : "Iniciar sesión";
+  authSwitchText.textContent  = creandoCuenta ? "¿Ya tienes una cuenta?" : "¿No tienes cuenta todavía?";
+  loginToggle.textContent     = creandoCuenta ? "Inicia sesión" : "Créala gratis";
+
+  inputPassword.autocomplete = creandoCuenta ? "new-password" : "current-password";
+  if (creandoCuenta) actualizarFuerzaPassword();
+}
+
+function aplicarVisibilidadPassword(mostrar) {
+  const tipo = mostrar ? "text" : "password";
+  inputPassword.type = tipo;
+  inputConfirm.type = tipo;
+  togglePasswordBtn.setAttribute("aria-label", mostrar ? "Ocultar contraseña" : "Mostrar contraseña");
+  togglePasswordBtn.querySelector(".auth-eye-show").style.display = mostrar ? "none" : "block";
+  togglePasswordBtn.querySelector(".auth-eye-hide").style.display = mostrar ? "block" : "none";
+}
+
+function alternarVisibilidadPassword() {
+  aplicarVisibilidadPassword(inputPassword.type === "password");
+}
+
+function ocultarPassword() {
+  aplicarVisibilidadPassword(false);
+}
+
+// Puntuación 0-4 según longitud y variedad de caracteres.
+function calcularFuerzaPassword(pwd) {
+  if (!pwd) return 0;
+  let score = 0;
+  if (pwd.length >= PASSWORD_MIN) score++;
+  if (pwd.length >= 10) score++;
+  if (/[a-z]/.test(pwd) && /[A-Z0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  return Math.min(score, 4);
+}
+
+function actualizarFuerzaPassword() {
+  const pwd = inputPassword.value;
+  const corta = pwd.length > 0 && pwd.length < PASSWORD_MIN;
+  const score = corta ? 1 : calcularFuerzaPassword(pwd);
+
+  const niveles = [
+    { label: "Mínimo 6 caracteres", color: "var(--text-3)" },
+    { label: corta ? "Demasiado corta" : "Débil", color: "var(--red)" },
+    { label: "Aceptable", color: "var(--amber)" },
+    { label: "Buena", color: "var(--green)" },
+    { label: "Fuerte", color: "var(--accent)" },
+  ];
+
+  const nivel = niveles[pwd.length === 0 ? 0 : score];
+  authStrength.dataset.score = pwd.length === 0 ? "0" : String(score);
+  authStrength.style.setProperty("--strength-color", nivel.color);
+  authStrengthLabel.textContent = nivel.label;
+  authStrengthLabel.style.color = nivel.color;
+}
+
+function mostrarErrorCampo(input, mensaje) {
+  const field = input.closest(".auth-field");
+  if (!field) return;
+  field.classList.add("has-error");
+  field.classList.remove("is-valid");
+  const span = field.querySelector(".auth-field-error");
+  if (span) span.textContent = mensaje;
+  input.setAttribute("aria-invalid", "true");
+}
+
+function limpiarErrorCampo(input) {
+  const field = input.closest(".auth-field");
+  if (!field) return;
+  field.classList.remove("has-error");
+  const span = field.querySelector(".auth-field-error");
+  if (span) span.textContent = "";
+  input.removeAttribute("aria-invalid");
+}
+
+// Valida en cliente antes de llamar al backend; devuelve true si todo está OK.
+function validarFormularioAuth(username, password, displayName, confirm) {
+  let ok = true;
+
+  if (!username) {
+    mostrarErrorCampo(inputUsername, "Escribe tu nombre de usuario.");
+    ok = false;
+  } else if (authMode === "register" && !USERNAME_REGEX.test(username)) {
+    mostrarErrorCampo(inputUsername, "3 a 30 caracteres: letras, números, . _ -");
+    ok = false;
+  }
+
+  if (!password) {
+    mostrarErrorCampo(inputPassword, "Escribe tu contraseña.");
+    ok = false;
+  } else if (authMode === "register" && (password.length < PASSWORD_MIN || password.length > PASSWORD_MAX)) {
+    mostrarErrorCampo(inputPassword, `Debe tener entre ${PASSWORD_MIN} y ${PASSWORD_MAX} caracteres.`);
+    ok = false;
+  }
+
+  if (authMode === "register") {
+    if (!confirm) {
+      mostrarErrorCampo(inputConfirm, "Repite la contraseña.");
+      ok = false;
+    } else if (confirm !== password) {
+      mostrarErrorCampo(inputConfirm, "Las contraseñas no coinciden.");
+      ok = false;
+    }
+  }
+
+  return ok;
+}
+
+function setAuthCargando(cargando) {
+  authSubmit.disabled = cargando;
+  authSubmit.classList.toggle("is-loading", cargando);
+  [tabLogin, tabRegister, loginToggle].forEach(el => { el.disabled = cargando; });
+}
+
+async function enviarFormularioAuth(e) {
+  e.preventDefault();
+  loginError.textContent = "";
+
+  const username = inputUsername.value.trim();
+  const password = inputPassword.value;
+  const displayName = inputDisplayName.value.trim();
+  const confirm = inputConfirm.value;
+
+  if (!validarFormularioAuth(username, password, displayName, confirm)) {
+    return;
+  }
+
+  const endpoint = authMode === "register" ? "register" : "login";
+  const payload = authMode === "register"
+    ? { username, password, displayName }
+    : { username, password };
+
+  setAuthCargando(true);
+  try {
+    const res = await request(`${API_URL}/auth/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const session = await res.json();
+    localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+    loginForm.reset();
+    mostrarAppAutenticada();
+    notify(authMode === "register" ? "¡Cuenta creada! Bienvenido a GameVault." : "Sesión iniciada.", "success");
+    await cargarDatosIniciales();
+  } catch (err) {
+    // Si el backend indica usuario duplicado, lo marcamos en el campo.
+    if (/ya existe/i.test(err.message)) {
+      mostrarErrorCampo(inputUsername, "Ese usuario ya está en uso.");
+    } else {
+      loginError.textContent = err.message;
+    }
+  } finally {
+    setAuthCargando(false);
+  }
+}
+
+function cerrarSesionAdmin() {
+  localStorage.removeItem(ADMIN_SESSION_KEY);
+  mostrarLogin();
+  notify("Sesion cerrada.", "info");
+}
+
 // ════════════════════════════════════════════════════════
 //  NAVEGACIÓN
 // ════════════════════════════════════════════════════════
@@ -172,7 +567,13 @@ function cambiarVistaPrincipal(vista) {
 // ════════════════════════════════════════════════════════
 
 async function cargarCategorias() {
-  const res = await fetch(`${API_URL}/categorias`);
+  let res;
+  try {
+    res = await request(`${API_URL}/categorias`);
+  } catch (e) {
+    notify(`No se pudieron cargar las categorías: ${e.message}`, "error");
+    return;
+  }
   categorias = await res.json();
 
   const wlCatSelect = document.getElementById("wl-categoriaId");
@@ -188,7 +589,13 @@ async function cargarCategorias() {
 }
 
 async function cargarPlataformas() {
-  const res = await fetch(`${API_URL}/plataformas`);
+  let res;
+  try {
+    res = await request(`${API_URL}/plataformas`);
+  } catch (e) {
+    notify(`No se pudieron cargar las plataformas: ${e.message}`, "error");
+    return;
+  }
   plataformas = await res.json();
 
   const wlPlatSelect = document.getElementById("wl-plataformaId");
@@ -202,10 +609,12 @@ async function cargarPlataformas() {
 }
 
 async function cargarVideojuegos() {
-  const res = await fetch(`${API_URL}/videojuegos`);
-  if (!res.ok) {
+  let res;
+  try {
+    res = await request(`${API_URL}/videojuegos`, { headers: authHeaders() });
+  } catch (e) {
     gamesList.innerHTML = `<p style="color:#f87171;padding:20px;text-align:center">
-      Error al cargar los videojuegos (${res.status}). Intenta recargar la página.</p>`;
+      ${e.message} Intenta recargar la página.</p>`;
     return;
   }
   videojuegos = await res.json();
@@ -214,8 +623,12 @@ async function cargarVideojuegos() {
 }
 
 async function cargarEstadisticas() {
-  const res = await fetch(`${API_URL}/videojuegos/estadisticas`);
-  if (!res.ok) return;
+  let res;
+  try {
+    res = await request(`${API_URL}/videojuegos/estadisticas`, { headers: authHeaders() });
+  } catch (_) {
+    return; // las estadísticas son secundarias: si fallan, no interrumpimos la vista
+  }
   const stats = await res.json();
 
   const claves = ["TOTAL", "PENDIENTE", "JUGANDO", "TERMINADO", "FAVORITO"];
@@ -223,6 +636,34 @@ async function cargarEstadisticas() {
     const el = document.getElementById(`num-${k}`);
     if (el) el.textContent = stats[k] ?? 0;
   });
+}
+
+async function exportarCsv() {
+  const params = new URLSearchParams();
+  const titulo = searchInput.value.trim();
+
+  if (titulo) params.set("titulo", titulo);
+  if (filterEstado.value) params.set("estado", filterEstado.value);
+  if (filterCat.value) params.set("categoriaId", filterCat.value);
+
+  const query = params.toString();
+  const url = `${API_URL}/videojuegos/export/csv${query ? `?${query}` : ""}`;
+
+  // El endpoint requiere sesión de usuario, así que se descarga vía fetch con el token.
+  // Una navegación con window.location no puede enviar la cabecera Authorization.
+  try {
+    const res = await request(url, { headers: authHeaders() });
+    const blob = await res.blob();
+    const enlace = document.createElement("a");
+    enlace.href = URL.createObjectURL(blob);
+    enlace.download = "videojuegos.csv";
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    URL.revokeObjectURL(enlace.href);
+  } catch (e) {
+    notify(`No se pudo exportar el CSV: ${e.message}`, "error");
+  }
 }
 
 // ════════════════════════════════════════════════════════
@@ -355,7 +796,13 @@ async function cargarResenas(videojuegoId) {
   const emptyRes = document.getElementById("resenas-empty");
   lista.innerHTML = '<p style="color:#64748b;font-size:13px">Cargando rese\u00F1as...</p>';
 
-  const res    = await fetch(`${API_URL}/resenas/videojuego/${videojuegoId}`);
+  let res;
+  try {
+    res = await request(`${API_URL}/resenas/videojuego/${videojuegoId}`, { headers: authHeaders() });
+  } catch (e) {
+    lista.innerHTML = `<p style="color:#f87171;font-size:13px">No se pudieron cargar las rese\u00F1as: ${e.message}</p>`;
+    return;
+  }
   const resenas = await res.json();
 
   lista.innerHTML = "";
@@ -394,21 +841,29 @@ async function guardarResena(e) {
     videojuegoId: detalleJuegoId,
   };
 
-  const res = await fetch(`${API_URL}/resenas`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-
-  if (res.ok) {
-    modalResena.style.display = "none";
-    await cargarResenas(detalleJuegoId);
+  try {
+    await request(`${API_URL}/resenas`, {
+      method: "POST",
+      headers: jsonAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+  } catch (err) {
+    notify(`No se pudo guardar la reseña: ${err.message}`, "error");
+    return;
   }
+  modalResena.style.display = "none";
+  notify("Reseña publicada.", "success");
+  await cargarResenas(detalleJuegoId);
 }
 
 async function eliminarResena(id) {
   if (!confirm("\u00BFEliminar esta rese\u00F1a?")) return;
-  await fetch(`${API_URL}/resenas/${id}`, { method: "DELETE" });
+  try {
+    await request(`${API_URL}/resenas/${id}`, { method: "DELETE", headers: authHeaders() });
+  } catch (e) {
+    notify(`No se pudo eliminar la rese\u00F1a: ${e.message}`, "error");
+    return;
+  }
   await cargarResenas(detalleJuegoId);
 }
 
@@ -503,23 +958,26 @@ async function guardarVideojuego(e) {
   const url    = editandoId ? `${API_URL}/videojuegos/${editandoId}` : `${API_URL}/videojuegos`;
   const method = editandoId ? "PUT" : "POST";
 
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-
   const msg = document.getElementById("message");
-  if (res.ok) {
-    msg.style.color = "#4ade80";
-    msg.textContent = editandoId ? "Juego actualizado." : "Juego agregado.";
-    resetForm();
-    await cargarVideojuegos();
-    setTimeout(() => { msg.textContent = ""; }, 3000);
-  } else {
+  const eraEdicion = editandoId !== null;
+
+  try {
+    await request(url, {
+      method,
+      headers: jsonAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+  } catch (err) {
     msg.style.color = "#f87171";
-    msg.textContent = "Error al guardar. Verifica los campos e int\u00E9ntalo de nuevo.";
+    msg.textContent = err.message;
+    return;
   }
+
+  msg.style.color = "#4ade80";
+  msg.textContent = eraEdicion ? "Juego actualizado." : "Juego agregado.";
+  resetForm();
+  await cargarVideojuegos();
+  setTimeout(() => { msg.textContent = ""; }, 3000);
 }
 
 function editar(id) {
@@ -550,7 +1008,13 @@ function editar(id) {
 
 async function eliminar(id) {
   if (!confirm("\u00BFEliminar este juego?")) return;
-  await fetch(`${API_URL}/videojuegos/${id}`, { method: "DELETE" });
+  try {
+    await request(`${API_URL}/videojuegos/${id}`, { method: "DELETE", headers: authHeaders() });
+  } catch (e) {
+    notify(`No se pudo eliminar el juego: ${e.message}`, "error");
+    return;
+  }
+  notify("Juego eliminado.", "success");
   await cargarVideojuegos();
 }
 
@@ -591,7 +1055,13 @@ function sincronizarPillActiva(estado) {
 // ════════════════════════════════════════════════════════
 
 async function cargarWishlist() {
-  const res = await fetch(`${API_URL}/wishlist`);
+  let res;
+  try {
+    res = await request(`${API_URL}/wishlist`, { headers: authHeaders() });
+  } catch (e) {
+    notify(`No se pudo cargar la wishlist: ${e.message}`, "error");
+    return;
+  }
   wishlistItems = await res.json();
   renderizarWishlist();
 }
@@ -658,20 +1128,29 @@ async function guardarWishlistItem(e) {
     plataforma: platId ? { id: Number(platId) } : null,
   };
 
-  const res = await fetch(`${API_URL}/wishlist`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-
-  if (res.ok) {
-    modalWishlist.style.display = "none";
-    await cargarWishlist();
+  try {
+    await request(`${API_URL}/wishlist`, {
+      method: "POST",
+      headers: jsonAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+  } catch (err) {
+    errorEl.textContent = err.message;
+    notify(`No se pudo agregar a la wishlist: ${err.message}`, "error");
+    return;
   }
+  modalWishlist.style.display = "none";
+  notify("Agregado a la wishlist.", "success");
+  await cargarWishlist();
 }
 
 async function eliminarWishlistItem(id) {
   if (!confirm("\u00BFQuitar este juego de la wishlist?")) return;
-  await fetch(`${API_URL}/wishlist/${id}`, { method: "DELETE" });
+  try {
+    await request(`${API_URL}/wishlist/${id}`, { method: "DELETE", headers: authHeaders() });
+  } catch (e) {
+    notify(`No se pudo quitar de la wishlist: ${e.message}`, "error");
+    return;
+  }
   await cargarWishlist();
 }

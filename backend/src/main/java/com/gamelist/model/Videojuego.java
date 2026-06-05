@@ -30,12 +30,22 @@ public class Videojuego {
     @Column(length = 2000)
     private String descripcion;
 
+    @Column(columnDefinition = "TEXT")
     private String imagenUrl;
 
     @NotNull(message = "El estado es obligatorio")
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EstadoJuego estado;
+
+    // Dueño del videojuego: cada registro pertenece al usuario que lo creó.
+    // Nullable a nivel de columna para no romper la migración de filas existentes;
+    // el controlador siempre lo asigna al crear.
+    @JsonIgnore
+    @ToString.Exclude
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id")
+    private Usuario usuario;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "categoria_id")
