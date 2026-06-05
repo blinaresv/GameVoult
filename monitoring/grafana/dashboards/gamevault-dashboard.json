@@ -329,8 +329,9 @@
           },
           "editorMode": "code",
           "expr": "100 * ((sum(rate(gamevault_api_requests_total{status=~\"4..|5..\"}[5m])) or vector(0)) / clamp_min((sum(rate(gamevault_api_requests_total[5m])) or vector(0)), 0.000001))",
+          "instant": true,
           "legendFormat": "errores",
-          "range": true,
+          "range": false,
           "refId": "A"
         }
       ],
@@ -603,6 +604,6 @@
   "timezone": "browser",
   "title": "GameVault Observabilidad",
   "uid": "gamevault-observabilidad",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }

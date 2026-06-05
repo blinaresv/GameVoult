@@ -34,6 +34,19 @@ for ($i = 1; $i -le $Iterations; $i++) {
     Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/videojuegos/estadisticas" -Headers $authHeaders | Out-Null
     Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/wishlist" -Headers $authHeaders | Out-Null
 
+    # Genera un 404 controlado para comprobar la tasa de errores HTTP en Grafana.
+    if ($i % 10 -eq 0) {
+        try {
+            Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/videojuegos/999999999" `
+                -Headers $authHeaders -ErrorAction Stop | Out-Null
+        } catch {
+            $statusCode = [int]$_.Exception.Response.StatusCode
+            if ($statusCode -ne 404) {
+                throw
+            }
+        }
+    }
+
     if ($i % 5 -eq 0) {
         $body = @{
             titulo = "Demo traffic $i"
