@@ -15,7 +15,7 @@
 
 ## Descripción del Proyecto
 
-**GameVault** es una aplicación web para gestionar tu biblioteca de videojuegos personales, desplegada íntegramente en Google Cloud Platform, permite registrar juegos, organizarlos por categoría y plataforma, llevar un seguimiento por estado (PENDIENTE, JUGANDO, TERMINADO, FAVORITO), escribir reseñas con puntuación y mantener una wishlist priorizada.
+**GameVault** es una aplicación web para gestionar tu biblioteca de videojuegos personales, desplegada íntegramente en Google Cloud Platform, permite registrar juegos, organizarlos por categoría y plataforma, llevar un seguimiento por estado (PENDIENTE, JUGANDO, TERMINADO, FAVORITO), escribir reseñas con puntuación y mantener una wishlist priorizada. **Cada usuario gestiona su propia biblioteca, wishlist, reseñas y estadísticas de forma privada e independiente** del resto de cuentas.
 
 ---
 
@@ -85,12 +85,12 @@ Evidencias: [#16 HU-13](https://github.com/blinaresv/GameVoult/issues/16) · [#1
 | Métrica | Valor |
 |---------|-------|
 | **Velocity promedio** | 21 puntos por sprint |
-| **Historias completadas** | 19 / 19 |
+| **Historias completadas** | 25 / 25 (19 de los Sprints 1–3 + 6 del Proyecto 3) |
 | **Bugs encontrados** | 1 (HU-17 — Swagger HTTPS, resuelto en Sprint 3) |
 | **PRs mergeados** | 24 |
 | **Commits totales** | 86 (2 autores) |
-| **Tiempo promedio de resolución** | ~2 horas por historia (mediana: 1h 58min) |
-| **Cycle Time mínimo** | 11 minutos (HU-03 Plataformas) |
+| **Tiempo promedio de resolución** | 2 horas por historia (mediana: 1h 58min) |
+| **Cycle Time mínimo** | 10 minutos (HU-03 Plataformas) |
 | **Cycle Time máximo** | 27h 18min (HU-16 Documentación) |
 
 
@@ -102,16 +102,16 @@ Lead Time mide el tiempo total desde que una historia entra al backlog hasta que
 
 | Sprint | Lead Time promedio |
 |--------|--------------------|
-| Sprint 1 | ~1h 04min |
-| Sprint 2 | ~2h 10min |
-| Sprint 3 | ~7h 41min |
+| Sprint 1 | 1h 04min |
+| Sprint 2 | 2h 10min |
+| Sprint 3 | 7h 41min |
 | **Global** | **~3h 26min** |
 
 > En este proyecto el Lead Time coincide con el Cycle Time porque los issues se crearon y se trabajaron en la misma sesión de trabajo (backlog → in progress → done el mismo día). No hubo tiempo de espera en cola entre la creación del issue y el inicio del desarrollo.
 
 ### Cycle Time por Historia
 
-Calculado como diferencia entre `createdAt` y `closedAt` de cada issue en GitHub.
+Para los Sprints 1–3 se calcula como la diferencia entre `createdAt` y `closedAt` de cada issue en GitHub. Las 6 historias del Proyecto 3 (HU-20 a HU-25) se entregaron en una fase posterior sin issues con tiempos medidos, por lo que sus valores son **estimaciones** marcadas con `(est.)` y no entran en el promedio/mediana medidos de los Sprints 1–3.
 
 | Historia | Cycle Time |
 |----------|-----------|
@@ -134,11 +134,156 @@ Calculado como diferencia entre `createdAt` y `closedAt` de cada issue en GitHub
 | HU-17 Swagger HTTPS (bug) | 3h 51min |
 | HU-18 Wishlist API | 3h 25min |
 | HU-19 Rediseño frontend | 0h 21min |
-| **Promedio** | **3h 26min** |
-| **Mediana** | **1h 58min** |
+| HU-20 Monitoreo Prometheus + Grafana | 2h 30min (est.) |
+| HU-21 Métricas de la API | 1h 45min (est.) |
+| HU-22 Autenticación de usuarios | 3h 00min (est.) |
+| HU-23 Aislamiento de datos por usuario | 2h 45min (est.) |
+| HU-24 Exportación CSV | 1h 10min (est.) |
+| HU-25 Documento de seguridad | 1h 30min (est.) |
+| **Promedio (Sprints 1–3, medido)** | **3h 26min** |
+| **Mediana (Sprints 1–3, medido)** | **1h 58min** |
 
 > La mediana (~2h) es el indicador más representativo: HU-16 (documentación) es un outlier natural al requerir trabajo de redacción extendido.  
 > Fuente: [GitHub Insights](https://github.com/blinaresv/GameVoult/pulse) · [Issues cerrados](https://github.com/blinaresv/GameVoult/issues?q=is:closed)
+
+---
+
+## Proyecto 3 - Seguridad, monitoreo y nueva funcionalidad
+
+El Proyecto 3 agrega los siguientes componentes al sistema existente:
+
+| Componente | Implementacion |
+|------------|----------------|
+| Monitoreo | Prometheus + Grafana con Docker Compose |
+| Metricas | Endpoint `/metrics`, contador de requests, latencia y gauge |
+| Autenticacion | Registro/login de usuarios + API Key de respaldo para scripts |
+| Datos por usuario | Cada cuenta ve y gestiona solo su propia biblioteca, wishlist, resenas y estadisticas |
+| Seguridad | Documento [`docs/security.md`](docs/security.md) |
+| Nueva funcionalidad | Exportacion de videojuegos a CSV |
+
+### Historias de usuario — Proyecto 3
+
+| Historia | Descripción | Estado |
+|----------|-------------|--------|
+| HU-20 | Monitoreo con Prometheus + Grafana sobre Docker Compose | Completado |
+| HU-21 | Métricas de la API: contador de requests, latencia (percentiles p95/p99) y gauge | Completado |
+| HU-22 | Autenticación de usuarios: registro/login con hash PBKDF2 y token firmado | Completado |
+| HU-23 | Aislamiento de datos por usuario: cada cuenta gestiona su propia biblioteca, wishlist, reseñas y estadísticas, sin poder acceder a las de otros | Completado |
+| HU-24 | Exportación de la biblioteca del usuario a CSV (con filtros) | Completado |
+| HU-25 | Documento de seguridad del sistema (`docs/security.md`) | Completado |
+
+> Seguimiento en el [GitHub Project (Kanban)](https://github.com/blinaresv/GameVoult/projects).
+
+#### HU-23 — Aislamiento de datos por usuario (detalle)
+
+**Como** usuario registrado, **quiero** que mis videojuegos, wishlist, reseñas y estadísticas sean privados, **para que** ningún otro usuario vea ni modifique mi información.
+
+Criterios de aceptación:
+- Cada videojuego y cada item de wishlist queda asociado al usuario que lo crea (`usuario_id`).
+- Las consultas de biblioteca, wishlist, reseñas, estadísticas y exportación CSV devuelven únicamente los datos del usuario autenticado.
+- Un usuario no puede leer, editar ni eliminar recursos de otro (responde `404`).
+- Los endpoints por usuario requieren token de sesión válido; sin él responden `401`.
+- Cubierto por tests de repositorio (`@DataJpaTest`) y de controlador (`@WebMvcTest`).
+
+### Ejecucion del stack completo
+
+Desde la raiz del repositorio:
+
+```bash
+docker compose up --build
+```
+
+Servicios disponibles:
+
+| Servicio | URL |
+|----------|-----|
+| Aplicacion GameVault | http://localhost:8080 |
+| Metricas Prometheus de la API | http://localhost:8080/metrics |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3000 |
+
+Credenciales de Grafana:
+
+```text
+Usuario: admin
+Contrasena: admin
+```
+
+El dashboard se aprovisiona automaticamente en Grafana con el nombre **GameVault Observabilidad**.
+
+### Generar trafico de prueba
+
+Con el stack corriendo, ejecutar en PowerShell:
+
+```powershell
+.\scripts\generate-traffic.ps1
+```
+
+El script inicia sesion con un usuario dedicado (lo registra automaticamente si no existe), consulta la biblioteca, las estadisticas y la wishlist con su token, y crea/elimina items temporales de wishlist para generar metricas.
+
+### Login y registro de usuarios
+
+Al abrir la aplicacion se muestra una pantalla de inicio de sesion. Desde esa misma pantalla se puede usar **Crear cuenta** para registrar usuarios nuevos. El sistema crea automaticamente un administrador local para sustentacion:
+
+```text
+Usuario: admin
+Contrasena: admin123
+```
+
+Los usuarios registrados quedan con rol `USER` y el usuario inicial queda con rol `ADMIN`. Las contrasenas se guardan con hash PBKDF2 y el frontend guarda un token firmado temporal que envia en cada peticion a los recursos protegidos con:
+
+```text
+Authorization: Bearer <token>
+```
+
+### Modelo de autorizacion (datos por usuario)
+
+Cada cuenta gestiona unicamente sus propios datos. Los videojuegos, la wishlist, las resenas y las estadisticas quedan asociados al usuario que los crea y **solo ese usuario** puede verlos o modificarlos. Si Brandon registra juegos y luego inicia sesion Jhon, cada uno vera su propia biblioteca de forma independiente; ningun usuario puede leer ni alterar los datos de otro (responde `404`).
+
+| Tipo de endpoint | Lectura | Escritura |
+|------------------|---------|-----------|
+| Recursos por usuario — `/api/videojuegos`, `/api/wishlist`, `/api/resenas` (incluye `export/csv` y `estadisticas`) | Requiere sesion de usuario (token Bearer) | Requiere sesion de usuario (token Bearer) |
+| Recursos compartidos — `/api/categorias`, `/api/plataformas` | Publica | Token de usuario o `X-API-Key` |
+
+La API Key (`X-API-Key: dev-gamevault-key`) se conserva como respaldo **unicamente** para las escrituras de los recursos compartidos (categorias y plataformas) y para scripts tecnicos; **no da acceso a los datos por usuario**.
+
+Ejemplo de escritura en un recurso compartido con API Key:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/categorias" `
+  -Headers @{ "X-API-Key" = "dev-gamevault-key"; "Content-Type" = "application/json" } `
+  -Body '{"nombre":"Indie"}'
+```
+
+Ejemplo de acceso a un recurso por usuario con token Bearer:
+
+```powershell
+$login = Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/auth/login" `
+  -ContentType "application/json" -Body '{"username":"admin","password":"admin123"}'
+
+Invoke-RestMethod -Method Get -Uri "http://localhost:8080/api/videojuegos" `
+  -Headers @{ "Authorization" = "Bearer $($login.token)" }
+```
+
+Cualquier peticion a un recurso por usuario sin token valido responde `401`.
+
+Si se cambia `API_KEY` en Docker Compose o Cloud Run, el frontend puede usar la nueva clave guardandola en el navegador (solo afecta a los recursos compartidos):
+
+```javascript
+localStorage.setItem("gamevaultApiKey", "nueva-clave")
+```
+
+### Exportacion CSV
+
+La biblioteca incluye un boton **Exportar CSV** que descarga unicamente los videojuegos del usuario en sesion. El endpoint requiere token Bearer:
+
+```text
+GET http://localhost:8080/api/videojuegos/export/csv
+Authorization: Bearer <token>
+```
+
+Acepta filtros opcionales como `titulo`, `estado`, `categoriaId` y `plataformaId`.
 
 ---
 
@@ -171,6 +316,21 @@ Esto levantará el servidor en: http://localhost:8080
 ### 4. Ejecutar el frontend
 
 Abrir el archivo `frontend/index.html` en cualquier navegador.
+
+### 5. Ejecutar las pruebas
+
+El backend incluye pruebas automatizadas que corren sobre una base de datos H2 en memoria (no requieren PostgreSQL):
+
+```bash
+cd backend
+./mvnw test        # en Windows: mvnw.cmd test
+```
+
+Cobertura actual:
+- **Tests de repositorio** (`@DataJpaTest`): validan las consultas `buscarConFiltros` de videojuegos y wishlist sobre H2, incluyendo el **filtrado por usuario dueño** (un usuario no ve los datos de otro).
+- **Tests de controlador** (`@WebMvcTest`): validan códigos de estado, validación de entrada, estadísticas y la **autorización por sesión de usuario** (`401` sin token, `201` con token; cada operación queda acotada al usuario autenticado).
+
+> Requiere **Java 21**. El build de la imagen Docker no compila ni ejecuta los tests (`-Dmaven.test.skip=true`): el artefacto de producción se mantiene desacoplado del código de pruebas.
 
 ---
 
@@ -421,7 +581,7 @@ El proyecto demuestra la implementación de una arquitectura moderna basada en s
 
 ### 13. Trabajo Futuro
 
-* Implementar autenticación con JWT
-* Añadir pruebas unitarias
+* Migrar el token firmado HMAC actual a JWT estándar con refresh tokens
+* Ampliar la cobertura de pruebas (ya hay tests de repositorio y de controlador; faltan reseñas, categorías y plataformas)
 * Optimizar consultas con caché
 * Mejorar interfaz de usuario
