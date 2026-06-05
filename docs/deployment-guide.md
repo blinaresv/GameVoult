@@ -83,16 +83,28 @@ CREATE TABLE IF NOT EXISTS plataforma (
     fabricante  VARCHAR(100)
 );
 
+-- Usuarios (Proyecto 3): login/registro y aislamiento de datos por usuario
+CREATE TABLE IF NOT EXISTS usuario_app (
+    id            SERIAL PRIMARY KEY,
+    username      VARCHAR(30) NOT NULL UNIQUE,
+    display_name  VARCHAR(80),
+    password_hash VARCHAR(260) NOT NULL,
+    role          VARCHAR(20) NOT NULL CHECK (role IN ('ADMIN','USER')),
+    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS videojuego (
     id            SERIAL PRIMARY KEY,
     titulo        VARCHAR(255) NOT NULL,
     anio          INTEGER,
     descripcion   TEXT,
-    imagen_url    VARCHAR(500),
+    imagen_url    TEXT,
     estado        VARCHAR(20) NOT NULL CHECK (estado IN ('PENDIENTE','JUGANDO','TERMINADO','FAVORITO')),
+    usuario_id    INTEGER REFERENCES usuario_app(id),
     categoria_id  INTEGER REFERENCES categoria(id),
     plataforma_id INTEGER REFERENCES plataforma(id)
 );
+CREATE INDEX IF NOT EXISTS idx_videojuego_usuario ON videojuego(usuario_id);
 
 CREATE TABLE IF NOT EXISTS resena (
     id            SERIAL PRIMARY KEY,
@@ -107,10 +119,14 @@ CREATE TABLE IF NOT EXISTS wishlist (
     titulo        VARCHAR(255) NOT NULL,
     prioridad     VARCHAR(10) NOT NULL CHECK (prioridad IN ('ALTA','MEDIA','BAJA')),
     notas         TEXT,
+    usuario_id    INTEGER REFERENCES usuario_app(id),
     plataforma_id INTEGER REFERENCES plataforma(id),
     categoria_id  INTEGER REFERENCES categoria(id)
 );
+CREATE INDEX IF NOT EXISTS idx_wishlist_usuario ON wishlist(usuario_id);
 ```
+
+> En bases de datos ya existentes, las columnas `usuario_id` se agregan con `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (ver comentarios en `database/schema.sql`). Los datos previos quedan sin dueño; cada usuario verá solo lo que cree tras la migración.
 
 ---
 
@@ -140,9 +156,20 @@ spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
 
 # Swagger HTTPS en Cloud Run
 server.forward-headers-strategy=framework
+
+# Autenticación y API Key (Proyecto 3) — se leen de variables de entorno
+app.api-key=${API_KEY:dev-gamevault-key}
+app.admin.username=${ADMIN_USERNAME:admin}
+app.admin.password=${ADMIN_PASSWORD:admin123}
+app.auth.token-secret=${AUTH_TOKEN_SECRET:dev-gamevault-secret}
+app.auth.token-ttl-minutes=${AUTH_TOKEN_TTL_MINUTES:480}
+
+# Monitoreo con Actuator + Prometheus (Proyecto 3)
+management.endpoints.web.exposure.include=health,info,prometheus
+management.endpoints.web.path-mapping.prometheus=metrics
 ```
 
-Las variables de entorno `DB_USER`, `DB_PASSWORD` e `INSTANCE_CONNECTION_NAME` se configuran directamente en Cloud Run (no en el código).
+Las variables de entorno `DB_USER`, `DB_PASSWORD` e `INSTANCE_CONNECTION_NAME` se configuran directamente en Cloud Run (no en el código). A partir del Proyecto 3 se añaden `API_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` y `AUTH_TOKEN_SECRET` (los valores de demostración solo deben usarse en local; en producción deben ser secretos reales).
 
 ---
 
@@ -174,7 +201,7 @@ RUN mvn dependency:go-offline -B
 COPY backend/src ./src
 # El frontend se copia a los recursos estáticos de Spring Boot
 COPY frontend/ ./src/main/resources/static/
-RUN mvn clean package -DskipTests
+RUN mvn clean package -Dmaven.test.skip=true
 
 # Etapa 2: Imagen de runtime liviana
 FROM eclipse-temurin:21-jre-alpine
@@ -185,6 +212,8 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
 
 Spring Boot sirve los archivos del frontend en `/` y la API en `/api/` automáticamente.
+
+> El Dockerfile usa `-Dmaven.test.skip=true` para no compilar ni ejecutar las pruebas dentro de la imagen de producción; los tests se ejecutan aparte con `mvn test` (CI).
 
 ---
 
@@ -199,6 +228,27 @@ const API_URL = (window.location.hostname === 'localhost' && window.location.por
   ? 'http://localhost:8080/api'
   : '/api';
 ```
+
+---
+
+## 5.3 Stack local con Docker Compose (monitoreo)
+
+Para ejecutar y observar el sistema en local se usa `docker-compose.yml`, que levanta cuatro servicios: PostgreSQL, el backend, Prometheus y Grafana.
+
+```bash
+docker compose up --build -d
+```
+
+| Servicio | URL local | Notas |
+|---|---|---|
+| Aplicación (frontend + API) | http://localhost:8080 | Login con `admin` / `admin123` |
+| Métricas de la API | http://localhost:8080/metrics | Formato Prometheus |
+| Prometheus | http://localhost:9090 | Scrapea `backend:8080/metrics` |
+| Grafana | http://localhost:3000 | `admin` / `admin`; dashboard **GameVault Observabilidad** |
+
+Las credenciales y secretos del stack local se pasan como variables de entorno en el propio `docker-compose.yml` (`API_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `AUTH_TOKEN_SECRET`). Para generar tráfico de prueba que alimente los paneles de Grafana se usa `scripts/generate-traffic.ps1`.
+
+> Este stack es solo para entorno local/sustentación (HTTP). El despliegue productivo sigue siendo Cloud Run + Cloud SQL descrito en las secciones siguientes.
 
 ---
 
@@ -282,6 +332,12 @@ El trigger está configurado en GCP para detectar cambios en la rama `main` del 
 | `DB_USER` | `postgres` |
 | `DB_PASSWORD` | (valor seguro en Cloud Run) |
 | `INSTANCE_CONNECTION_NAME` | `game-list-cloud-493923:us-central1:gamevoult-db` |
+| `API_KEY` | (clave de respaldo para escrituras de recursos compartidos) |
+| `ADMIN_USERNAME` | (usuario administrador inicial) |
+| `ADMIN_PASSWORD` | (contraseña del administrador inicial) |
+| `AUTH_TOKEN_SECRET` | (clave de firma de los tokens de sesión) |
+
+> Las cuatro últimas variables se incorporan en el Proyecto 3. En producción deben ser valores secretos reales (idealmente gestionados con Secret Manager), nunca los valores de demostración.
 
 ---
 
@@ -349,6 +405,10 @@ Se verificó:
 - Conexión a Cloud SQL via Socket Factory
 - Persistencia de datos entre reinicios del contenedor
 - Frontend servido correctamente desde Spring Boot
+- Login/registro de usuarios y rechazo con 401 sin credenciales (Proyecto 3)
+- Aislamiento de datos por usuario en videojuegos, wishlist y reseñas
+- Exportación de videojuegos a CSV desde el frontend
+- Métricas en `/metrics` recolectadas por Prometheus y visibles en Grafana
 
 ---
 
